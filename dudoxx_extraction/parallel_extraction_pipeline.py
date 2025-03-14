@@ -20,6 +20,9 @@ try:
 except ImportError:
     from langchain_community.chat_models import ChatOpenAI
 
+# Import the configuration service
+from dudoxx_extraction.configuration_service import ConfigurationService
+
 # Local imports
 from dudoxx_extraction.domains.domain_registry import DomainRegistry
 from dudoxx_extraction.domains.domain_definition import DomainDefinition, SubDomainDefinition
@@ -55,16 +58,26 @@ class ParallelExtractionPipeline:
             output_formatter: Output formatter
             max_concurrency: Maximum concurrent LLM requests
         """
+        # Initialize configuration service
+        self.config_service = ConfigurationService()
+        llm_config = self.config_service.get_llm_config()
+        
         # Initialize LLM
         self.llm = llm or ChatOpenAI(
-            model_name="gpt-4o-mini",
-            temperature=0
+            base_url=llm_config["base_url"],
+            api_key=llm_config["api_key"],
+            model_name=llm_config["model_name"],
+            temperature=llm_config["temperature"],
+            max_tokens=llm_config["max_tokens"]
         )
+        
+        # Get extraction configuration
+        extraction_config = self.config_service.get_extraction_config()
         
         # Initialize text splitter
         self.text_splitter = text_splitter or RecursiveCharacterTextSplitter(
-            chunk_size=16000,
-            chunk_overlap=200,
+            chunk_size=extraction_config["chunk_size"],
+            chunk_overlap=extraction_config["chunk_overlap"],
             separators=["\n\n", "\n", " ", ""]
         )
         
@@ -73,8 +86,8 @@ class ParallelExtractionPipeline:
         self.result_merger = result_merger or ResultMerger()
         self.output_formatter = output_formatter or OutputFormatter()
         
-        # Set maximum concurrency
-        self.max_concurrency = max_concurrency
+        # Set maximum concurrency from configuration if not provided
+        self.max_concurrency = max_concurrency or extraction_config["max_concurrency"]
         
         # Get domain registry
         self.domain_registry = DomainRegistry()

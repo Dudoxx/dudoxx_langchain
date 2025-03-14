@@ -66,12 +66,16 @@ class TemporalNormalizer:
             llm: LangChain LLM for complex date parsing
         """
         if llm is None:
-            # Initialize ChatOpenAI with settings from .env
+            # Initialize configuration service
+            config_service = ConfigurationService()
+            llm_config = config_service.get_llm_config()
+            
+            # Initialize ChatOpenAI with settings from configuration service
             self.llm = ChatOpenAI(
-                model_name=OPENAI_MODEL_NAME,
-                temperature=0,
-                openai_api_key=OPENAI_API_KEY,
-                openai_api_base=OPENAI_BASE_URL
+                base_url=llm_config["base_url"],
+                api_key=llm_config["api_key"],
+                model_name=llm_config["model_name"],
+                temperature=llm_config["temperature"]
             )
         else:
             self.llm = llm
@@ -152,6 +156,9 @@ class TemporalNormalizer:
         return sorted_events
 
 
+# Import the configuration service
+from dudoxx_extraction.configuration_service import ConfigurationService
+
 class ResultMerger:
     """Merges and deduplicates results from multiple chunks."""
     
@@ -163,22 +170,26 @@ class ResultMerger:
             embedding_model: LangChain embedding model
             deduplication_threshold: Similarity threshold for deduplication
         """
-        # Use the embedding model from environment variables
+        # Use the embedding model from configuration service
         if embedding_model is None:
+            # Initialize configuration service
+            config_service = ConfigurationService()
+            embedding_config = config_service.get_embedding_config()
+            
             try:
                 # Try to import from langchain_openai (recommended)
                 from langchain_openai import OpenAIEmbeddings
                 self.embedding_model = OpenAIEmbeddings(
-                    model=OPENAI_EMBEDDING_MODEL,
-                    openai_api_key=OPENAI_API_KEY,
-                    openai_api_base=OPENAI_BASE_URL
+                    model=embedding_config["model"],
+                    api_key=embedding_config["api_key"],
+                    base_url=embedding_config["base_url"]
                 )
             except ImportError:
                 # Fall back to langchain_community if langchain_openai is not installed
                 self.embedding_model = OpenAIEmbeddings(
-                    model=OPENAI_EMBEDDING_MODEL,
-                    openai_api_key=OPENAI_API_KEY,
-                    openai_api_base=OPENAI_BASE_URL
+                    model=embedding_config["model"],
+                    openai_api_key=embedding_config["api_key"],
+                    openai_api_base=embedding_config["base_url"]
                 )
         else:
             self.embedding_model = embedding_model
@@ -440,27 +451,37 @@ class ExtractionPipeline:
             output_formatter: Output formatter
             max_concurrency: Maximum concurrent LLM requests
         """
+        # Initialize configuration service
+        self.config_service = ConfigurationService()
+        
         self.document_loader = document_loader or TextLoader
         
+        # Get extraction configuration
+        extraction_config = self.config_service.get_extraction_config()
+        
         self.text_splitter = text_splitter or RecursiveCharacterTextSplitter(
-            chunk_size=16000,
-            chunk_overlap=200,
+            chunk_size=extraction_config["chunk_size"],
+            chunk_overlap=extraction_config["chunk_overlap"],
             separators=["\n\n", "\n", " ", ""]
         )
         
-        # Initialize ChatOpenAI with settings from .env
+        # Get LLM configuration
+        llm_config = self.config_service.get_llm_config()
+        
+        # Initialize ChatOpenAI with settings from configuration service
         self.llm = llm or ChatOpenAI(
-            model_name=OPENAI_MODEL_NAME,
-            temperature=0,
-            openai_api_key=OPENAI_API_KEY,
-            openai_api_base=OPENAI_BASE_URL
+            base_url=llm_config["base_url"],
+            api_key=llm_config["api_key"],
+            model_name=llm_config["model_name"],
+            temperature=llm_config["temperature"],
+            max_tokens=llm_config["max_tokens"]
         )
         
         self.output_parser = output_parser
         self.temporal_normalizer = temporal_normalizer or TemporalNormalizer(self.llm)
         self.result_merger = result_merger or ResultMerger()
         self.output_formatter = output_formatter or OutputFormatter()
-        self.max_concurrency = max_concurrency
+        self.max_concurrency = max_concurrency or extraction_config["max_concurrency"]
     
     async def process_document(self, 
                               document_path: str, 
@@ -643,12 +664,17 @@ def extract_text(
     
     start_time = time.time()
     
-    # Initialize ChatOpenAI with settings from .env
+    # Initialize configuration service
+    config_service = ConfigurationService()
+    llm_config = config_service.get_llm_config()
+    
+    # Initialize ChatOpenAI with settings from configuration service
     llm = ChatOpenAI(
-        model_name=OPENAI_MODEL_NAME,
-        temperature=0,
-        openai_api_key=OPENAI_API_KEY,
-        openai_api_base=OPENAI_BASE_URL
+        base_url=llm_config["base_url"],
+        api_key=llm_config["api_key"],
+        model_name=llm_config["model_name"],
+        temperature=llm_config["temperature"],
+        max_tokens=llm_config["max_tokens"]
     )
     
     # Create field descriptions based on domain
