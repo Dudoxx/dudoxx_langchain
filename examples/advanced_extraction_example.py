@@ -278,12 +278,16 @@ class AdvancedExtractionExample:
         # Create retriever
         retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
         
-        # Create extraction chain
-        extraction_chain = (
-            {"query": RunnablePassthrough(), "docs": retriever}
-            | self._process_retrieved_docs
-            | self.llm.with_structured_output(MedicalRecord)
-        )
+        # Create extraction chain with RunnableLambda
+        def process_inputs(inputs):
+            return self._process_retrieved_docs({
+                "query": inputs["query"],
+                "docs": inputs["docs"]
+            })
+            
+        extraction_chain = RunnablePassthrough.assign(
+            docs=lambda x: retriever.invoke(x["query"])
+        ) | RunnableLambda(process_inputs) | self.llm.with_structured_output(MedicalRecord)
         
         # Extract information
         queries = [
