@@ -6,6 +6,8 @@ This directory contains comprehensive documentation for the Dudoxx Extraction sy
 
 The [LangChain Components](langchain_components.md) document provides an overview of LangChain 0.3 components that can be integrated into our document extraction system, including structured output extraction, contextual compression, and more.
 
+The [Advanced LangChain Components](langchain_advanced_components.md) document explores more sophisticated features like LLMs, memory systems, vectorstores, embeddings, semantic search, re-ranking, and advanced reasoning patterns (ReAct, thinking LLMs).
+
 ## Component Documentation
 
 The `components` directory contains detailed documentation for each major component of the system:
