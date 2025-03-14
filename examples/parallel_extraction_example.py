@@ -62,14 +62,15 @@ def extract_from_medical_document():
     
     console.print(sub_domains_table)
     
-    # Extract information using all sub-domains
-    console.print("\n[bold]Extracting with all sub-domains...[/]")
+    # Extract information using all sub-domains with thread-based parallelism
+    console.print("\n[bold]Extracting with all sub-domains (using thread-based parallelism)...[/]")
     start_time = time.time()
     
     result = extract_document_sync(
         document_path=str(example_file),
         domain_name="medical",
-        output_formats=["json", "text"]
+        output_formats=["json", "text"],
+        use_threads=True
     )
     
     total_time = time.time() - start_time
@@ -87,15 +88,16 @@ def extract_from_medical_document():
     console.print("\n[bold]Text Output:[/]")
     console.print(result["text_output"])
     
-    # Extract information using specific sub-domains
-    console.print("\n[bold]Extracting with specific sub-domains...[/]")
+    # Extract information using specific sub-domains with thread-based parallelism
+    console.print("\n[bold]Extracting with specific sub-domains (using thread-based parallelism)...[/]")
     start_time = time.time()
     
     result = extract_document_sync(
         document_path=str(example_file),
         domain_name="medical",
         sub_domain_names=["patient_info", "medications", "diagnoses"],
-        output_formats=["json", "text"]
+        output_formats=["json", "text"],
+        use_threads=True
     )
     
     total_time = time.time() - start_time
@@ -150,14 +152,15 @@ def extract_from_legal_document():
     
     console.print(sub_domains_table)
     
-    # Extract information using all sub-domains
-    console.print("\n[bold]Extracting with all sub-domains...[/]")
+    # Extract information using all sub-domains with thread-based parallelism
+    console.print("\n[bold]Extracting with all sub-domains (using thread-based parallelism)...[/]")
     start_time = time.time()
     
     result = extract_document_sync(
         document_path=str(example_file),
         domain_name="legal",
-        output_formats=["json", "text"]
+        output_formats=["json", "text"],
+        use_threads=True
     )
     
     total_time = time.time() - start_time
@@ -175,15 +178,16 @@ def extract_from_legal_document():
     console.print("\n[bold]Text Output:[/]")
     console.print(result["text_output"])
     
-    # Extract information using specific sub-domains
-    console.print("\n[bold]Extracting with specific sub-domains...[/]")
+    # Extract information using specific sub-domains with thread-based parallelism
+    console.print("\n[bold]Extracting with specific sub-domains (using thread-based parallelism)...[/]")
     start_time = time.time()
     
     result = extract_document_sync(
         document_path=str(example_file),
         domain_name="legal",
         sub_domain_names=["agreement_info", "parties", "obligations"],
-        output_formats=["json", "text"]
+        output_formats=["json", "text"],
+        use_threads=True
     )
     
     total_time = time.time() - start_time
