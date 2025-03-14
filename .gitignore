@@ -25,7 +25,7 @@ MANIFEST
 venv/
 env/
 ENV/
-.env
+
 
 # IDE
 .idea/
@@ -47,3 +47,6 @@ Thumbs.db
 logs/
 .coverage
 htmlcov/
+
+# Generated files
+examples/medical_record.txt
