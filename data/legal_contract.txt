@@ -1,0 +1,135 @@
+LEGAL SERVICES AGREEMENT
+
+This Legal Services Agreement (the "Agreement") is entered into as of March 10, 2025 (the "Effective Date") by and between:
+
+Smith & Associates, LLP, a New York limited liability partnership with its principal place of business at 123 Legal Avenue, New York, NY 10001 ("Law Firm")
+
+and
+
+Acme Corporation, a Delaware corporation with its principal place of business at 456 Business Boulevard, San Francisco, CA 94105 ("Client").
+
+WHEREAS, Client desires to retain Law Firm to provide certain legal services, and Law Firm is willing to perform such services, under the terms and conditions set forth herein.
+
+NOW, THEREFORE, in consideration of the mutual covenants and agreements hereinafter set forth, the parties agree as follows:
+
+1. SCOPE OF SERVICES
+
+1.1 Scope of Services. Law Firm shall provide to Client the legal services (the "Services") described in Exhibit A attached hereto and incorporated herein by reference.
+
+1.2 Performance of Services. Law Firm shall perform the Services in accordance with the highest professional standards of practice and ethics and shall comply with all applicable laws, rules, and regulations in the performance of the Services.
+
+1.3 Staffing. The Services will be performed primarily by John Smith, Partner, and Sarah Johnson, Associate. Law Firm may, in its discretion, assign other qualified attorneys and legal staff to assist in providing the Services as appropriate.
+
+2. TERM AND TERMINATION
+
+2.1 Term. This Agreement shall commence on the Effective Date and shall continue until the Services are completed, unless earlier terminated as provided herein.
+
+2.2 Termination by Client. Client may terminate this Agreement at any time by providing written notice to Law Firm. Upon termination, Client shall pay Law Firm for all Services performed and expenses incurred up to the date of termination.
+
+2.3 Termination by Law Firm. Law Firm may terminate this Agreement if:
+   (a) Client fails to pay any amount due under this Agreement within 30 days after receiving written notice from Law Firm that payment is due;
+   (b) Client fails to cooperate with Law Firm in the performance of the Services;
+   (c) Law Firm discovers a conflict of interest that precludes continued representation; or
+   (d) Law Firm determines that continuing representation would result in a violation of applicable rules of professional conduct.
+
+2.4 Effect of Termination. Upon termination of this Agreement, Law Firm shall promptly return to Client all documents and materials provided by Client. Law Firm shall be entitled to retain copies of documents developed during the representation, subject to its confidentiality obligations.
+
+3. FEES AND EXPENSES
+
+3.1 Fees. Client shall pay Law Firm for the Services at the hourly rates set forth in Exhibit B attached hereto and incorporated herein by reference.
+
+3.2 Expenses. Client shall reimburse Law Firm for all reasonable out-of-pocket expenses incurred in connection with the Services, including but not limited to filing fees, court costs, deposition costs, travel expenses, and expert witness fees.
+
+3.3 Invoicing and Payment. Law Firm shall invoice Client monthly for fees and expenses. Client shall pay all undisputed amounts within 30 days after receipt of each invoice. Any amounts not paid when due shall bear interest at the rate of 1% per month.
+
+3.4 Retainer. Client shall pay Law Firm an initial retainer of $25,000, which shall be applied against future invoices for fees and expenses. Law Firm may request additional retainer amounts if the initial retainer is depleted.
+
+4. CLIENT RESPONSIBILITIES
+
+4.1 Cooperation. Client shall cooperate with Law Firm in the performance of the Services, including providing Law Firm with all information and documents necessary for Law Firm to provide the Services.
+
+4.2 Accuracy of Information. Client shall provide accurate and complete information to Law Firm. Law Firm shall be entitled to rely on the accuracy and completeness of information provided by Client without independent verification.
+
+4.3 Decision-Making Authority. Client shall designate one or more individuals who have authority to make decisions on behalf of Client with respect to the matters for which Law Firm has been engaged.
+
+5. CONFIDENTIALITY
+
+5.1 Confidential Information. Law Firm shall maintain the confidentiality of all information provided by Client or obtained by Law Firm in connection with the Services, except as required by law or with Client's consent.
+
+5.2 Attorney-Client Privilege. The parties acknowledge that their communications may be protected by the attorney-client privilege. Neither party shall do anything that may waive or compromise such privilege without the other party's consent.
+
+6. CONFLICTS OF INTEREST
+
+6.1 Current Conflicts. Law Firm has conducted a conflicts check and is not aware of any current conflicts of interest that would preclude its representation of Client in the matters covered by this Agreement.
+
+6.2 Future Conflicts. Law Firm may represent other clients in matters that are adverse to Client, provided that such matters are not substantially related to the Services provided under this Agreement and Law Firm does not use Client's confidential information in such representation.
+
+7. LIMITATION OF LIABILITY
+
+7.1 Limitation of Liability. To the maximum extent permitted by applicable law, Law Firm's liability to Client for any claim arising out of or relating to this Agreement or the Services shall not exceed the amount of fees paid by Client to Law Firm under this Agreement.
+
+7.2 No Consequential Damages. In no event shall Law Firm be liable to Client for any indirect, special, incidental, or consequential damages arising out of or relating to this Agreement or the Services.
+
+8. GENERAL PROVISIONS
+
+8.1 Entire Agreement. This Agreement, including all exhibits, constitutes the entire agreement between the parties with respect to the subject matter hereof and supersedes all prior and contemporaneous agreements and understandings, whether oral or written.
+
+8.2 Amendments. This Agreement may be amended only by a written instrument signed by both parties.
+
+8.3 Governing Law. This Agreement shall be governed by and construed in accordance with the laws of the State of New York, without giving effect to any choice or conflict of law provision or rule.
+
+8.4 Dispute Resolution. Any dispute arising out of or relating to this Agreement or the Services shall be resolved by arbitration administered by the American Arbitration Association in accordance with its Commercial Arbitration Rules. The place of arbitration shall be New York, New York.
+
+8.5 Notices. All notices under this Agreement shall be in writing and shall be delivered by hand, by certified mail, return receipt requested, or by overnight courier to the addresses set forth in the preamble to this Agreement.
+
+8.6 Assignment. Neither party may assign this Agreement without the prior written consent of the other party.
+
+8.7 Severability. If any provision of this Agreement is held to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.
+
+IN WITNESS WHEREOF, the parties hereto have executed this Agreement as of the Effective Date.
+
+SMITH & ASSOCIATES, LLP
+
+By: _________________________
+    John Smith, Managing Partner
+    Date: March 10, 2025
+
+ACME CORPORATION
+
+By: _________________________
+    Jane Doe, General Counsel
+    Date: March 10, 2025
+
+EXHIBIT A
+SCOPE OF SERVICES
+
+Law Firm shall provide the following legal services to Client:
+
+1. Representation in the matter of Acme Corporation v. XYZ Technologies, Inc., Case No. 25-CV-1234, pending in the United States District Court for the Southern District of New York (the "Litigation").
+
+2. The scope of representation includes:
+   a. Conducting legal research and analysis
+   b. Drafting and filing pleadings, motions, and other court documents
+   c. Conducting discovery, including document review, depositions, and expert discovery
+   d. Settlement negotiations
+   e. Trial preparation and representation at trial
+   f. Post-trial motions and appeals, if necessary
+
+3. Additional legal services as may be requested by Client and agreed to by Law Firm.
+
+EXHIBIT B
+FEE SCHEDULE
+
+Law Firm's hourly rates for attorneys and staff who may work on this matter are as follows:
+
+Partners: $650 - $850 per hour
+Senior Associates: $450 - $600 per hour
+Junior Associates: $350 - $450 per hour
+Paralegals: $175 - $250 per hour
+
+The specific hourly rates for the primary attorneys assigned to this matter are:
+
+John Smith, Partner: $750 per hour
+Sarah Johnson, Associate: $500 per hour
+
+These rates are subject to annual adjustment, typically on January 1 of each year. Law Firm will provide Client with at least 30 days' notice of any rate increases.

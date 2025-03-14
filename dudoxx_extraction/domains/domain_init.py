@@ -7,6 +7,10 @@ This module initializes and registers all domain definitions.
 from dudoxx_extraction.domains.domain_registry import DomainRegistry
 from dudoxx_extraction.domains.medical_domain import register_medical_domain
 from dudoxx_extraction.domains.legal_domain import register_legal_domain
+from dudoxx_extraction.domains.specialized_medical_domains import register_specialized_medical_domain
+from dudoxx_extraction.domains.demographic_domains import register_demographic_domain
+from dudoxx_extraction.domains.specialized_lab_results_domains import register_specialized_lab_results_domain
+from dudoxx_extraction.domains.specialized_legal_domains import register_specialized_legal_domain
 
 
 def initialize_domains():
@@ -21,6 +25,18 @@ def initialize_domains():
     
     # Register legal domain
     register_legal_domain()
+    
+    # Register specialized medical domain
+    register_specialized_medical_domain()
+    
+    # Register demographic domain
+    register_demographic_domain()
+    
+    # Register specialized lab results domain
+    register_specialized_lab_results_domain()
+    
+    # Register specialized legal domain
+    register_specialized_legal_domain()
     
     # Log registered domains
     registry = DomainRegistry()

@@ -1,15 +1,15 @@
-# Dudoxx LangChain - Extraction Module
+# Dudoxx Extraction
 
-Dudoxx Extraction is a Python package for extracting structured information from large text documents using LangChain components and Large Language Models (LLMs). This module is part of the Dudoxx LangChain project maintained by the Dudoxx organization.
+A powerful, domain-aware extraction framework for extracting structured information from unstructured text documents.
 
-## Features
+## Overview
 
-- Extract structured information from text documents
-- Support for multiple domains (medical, legal, etc.)
-- Customizable field extraction
-- Multiple output formats (JSON, text, XML)
-- Asynchronous and synchronous APIs
-- Environment variable configuration via .env file
+Dudoxx Extraction is a comprehensive framework that combines domain knowledge with advanced LLM capabilities to extract structured information from various document types. The framework is designed to be flexible, extensible, and easy to use, making it suitable for a wide range of extraction tasks across different domains.
+
+## Key Components
+
+### Domain Identifier
+
 - Custom LLM endpoint support
 
 ## Installation
