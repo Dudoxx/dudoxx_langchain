@@ -11,6 +11,7 @@ The `components` directory contains detailed documentation for each major compon
 3. [Result Merger](components/03_result_merger.md) - Merges and deduplicates results from multiple document chunks
 4. [Output Formatter](components/04_output_formatter.md) - Formats extraction results in various output formats
 5. [Rich Logger](components/05_rich_logger.md) - Provides detailed, colorful console output for better visibility
+6. [Document Loaders](components/06_document_loaders.md) - Loads documents from various file formats (DOCX, HTML, CSV, Excel, PDF)
 
 ## Architecture Overview
 
