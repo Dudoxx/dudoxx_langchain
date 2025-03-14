@@ -2,6 +2,10 @@
 
 This directory contains comprehensive documentation for the Dudoxx Extraction system, a robust solution for extracting structured information from large text documents using LangChain components and LLM technology.
 
+## LangChain Integration
+
+The [LangChain Components](langchain_components.md) document provides an overview of LangChain 0.3 components that can be integrated into our document extraction system, including structured output extraction, contextual compression, and more.
+
 ## Component Documentation
 
 The `components` directory contains detailed documentation for each major component of the system:
