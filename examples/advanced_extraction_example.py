@@ -7,11 +7,17 @@ including structured output extraction, semantic search, and ReAct pattern.
 
 import os
 import sys
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import json
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.syntax import Syntax
+from rich.markdown import Markdown
+
 
 # Add the project root to the Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -130,29 +136,83 @@ class AdvancedExtractionExample:
         self.console = Console()
         self.config_service = ConfigurationService()
         
+        # Display configuration information
+        self.console.print(Panel("Configuration Information", style="green"))
+        
         # Get LLM and embedding configurations
         self.llm_config = self.config_service.get_llm_config()
         self.embedding_config = self.config_service.get_embedding_config()
         
-        # Create LLM and embeddings
-        self.llm = ChatOpenAI(
-            base_url=self.llm_config["base_url"],
-            api_key=self.llm_config["api_key"],
-            model_name=self.llm_config["model_name"],
-            temperature=self.llm_config["temperature"]
-        )
+        # Display LLM configuration
+        llm_table = Table(title="LLM Configuration")
+        llm_table.add_column("Setting", style="cyan")
+        llm_table.add_column("Value", style="green")
         
-        self.embeddings = OpenAIEmbeddings(
-            base_url=self.embedding_config["base_url"],
-            api_key=self.embedding_config["api_key"],
-            model=self.embedding_config["model"]
-        )
+        for key, value in self.llm_config.items():
+            # Mask API key for security
+            if key == "api_key" and value:
+                masked_value = value[:4] + "..." + value[-4:]
+                llm_table.add_row(key, masked_value)
+            else:
+                llm_table.add_row(key, str(value))
+        
+        self.console.print(llm_table)
+        
+        # Display embedding configuration
+        embedding_table = Table(title="Embedding Configuration")
+        embedding_table.add_column("Setting", style="cyan")
+        embedding_table.add_column("Value", style="green")
+        
+        for key, value in self.embedding_config.items():
+            # Mask API key for security
+            if key == "api_key" and value:
+                masked_value = value[:4] + "..." + value[-4:]
+                embedding_table.add_row(key, masked_value)
+            else:
+                embedding_table.add_row(key, str(value))
+        
+        self.console.print(embedding_table)
+        
+        # Create LLM with progress indicator
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold green]Initializing LLM..."),
+            transient=True,
+        ) as progress:
+            progress.add_task("initializing", total=1)
+            self.llm = ChatOpenAI(
+                base_url=self.llm_config["base_url"],
+                api_key=self.llm_config["api_key"],
+                model_name=self.llm_config["model_name"],
+                temperature=self.llm_config["temperature"]
+            )
+            time.sleep(1)  # Simulate initialization time
+        
+        self.console.print(f"[bold green]✓[/] LLM initialized: {self.llm_config['model_name']}")
+        
+        # Create embeddings with progress indicator
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold green]Initializing Embeddings..."),
+            transient=True,
+        ) as progress:
+            progress.add_task("initializing", total=1)
+            self.embeddings = OpenAIEmbeddings(
+                base_url=self.embedding_config["base_url"],
+                api_key=self.embedding_config["api_key"],
+                model=self.embedding_config["model"]
+            )
+            time.sleep(1)  # Simulate initialization time
+        
+        self.console.print(f"[bold green]✓[/] Embeddings initialized: {self.embedding_config['model']}")
         
         # Create text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200
         )
+        
+        self.console.print(f"[bold green]✓[/] Text splitter initialized: chunk_size=1000, chunk_overlap=200")
 
     def extract_with_structured_output(self, text: str) -> MedicalRecord:
         """
@@ -170,10 +230,27 @@ class AdvancedExtractionExample:
         self.console.print(Panel("Extracting with Structured Output", style="cyan"))
         
         # Create a model with structured output capability
+        self.console.print("[bold blue]Creating structured output model...[/]")
         structured_llm = self.llm.with_structured_output(MedicalRecord)
         
-        # Extract information
-        result = structured_llm.invoke(text)
+        # Display the schema
+        schema_json = json.dumps(MedicalRecord.model_json_schema(), indent=2)
+        self.console.print("Using schema:")
+        self.console.print(Syntax(schema_json, "json", theme="monokai", line_numbers=True))
+        
+        # Extract information with progress indicator
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold green]Extracting structured information..."),
+            transient=False,
+        ) as progress:
+            task = progress.add_task("extracting", total=1)
+            start_time = time.time()
+            result = structured_llm.invoke(text)
+            elapsed_time = time.time() - start_time
+            progress.update(task, completed=1)
+        
+        self.console.print(f"[bold green]✓[/] Extraction completed in {elapsed_time:.2f} seconds")
         
         return result
 
