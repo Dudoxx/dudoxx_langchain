@@ -435,7 +435,10 @@ class AdvancedExtractionExample:
         # Extract from file
         file_result = self.extract_from_file(str(example_file))
         self.console.print("\nFile Extraction Result:")
-        self.console.print(file_result.json(indent=2))
+        if file_result:
+            self.console.print(json.dumps(file_result.model_dump(), indent=2))
+        else:
+            self.console.print("[bold red]File extraction failed[/]")
         
         # Compare results
         self.console.print("\nComparison of Extraction Methods:")
