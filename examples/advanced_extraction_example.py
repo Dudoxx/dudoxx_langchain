@@ -445,7 +445,10 @@ class AdvancedExtractionExample:
         self.console.print(f"Structured Output: {len(structured_result.visits)} visits extracted")
         self.console.print(f"Semantic Search: {len(semantic_result.visits)} visits extracted")
         self.console.print(f"ReAct Pattern: {len(react_result.visits)} visits extracted")
-        self.console.print(f"File Extraction: {len(file_result.visits)} visits extracted")
+        if file_result:
+            self.console.print(f"File Extraction: {len(file_result.visits)} visits extracted")
+        else:
+            self.console.print("File Extraction: Failed")
 
 
 def main():
