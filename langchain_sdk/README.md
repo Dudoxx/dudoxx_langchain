@@ -1,6 +1,6 @@
-# Automated Large-Text Field Extraction Solution
+# Dudoxx LangChain SDK
 
-This package provides a solution for extracting structured information from large text documents using LangChain components and Large Language Models (LLMs).
+This package provides a solution for extracting structured information from large text documents using LangChain components and Large Language Models (LLMs). This is part of the Dudoxx LangChain project maintained by the Dudoxx organization.
 
 ## Features
 
@@ -19,12 +19,12 @@ This package provides a solution for extracting structured information from larg
 
 ```bash
 # Install from source
-git clone https://github.com/dudoxx/extraction.git
-cd extraction
+git clone https://github.com/Dudoxx/dudoxx_langchain.git
+cd dudoxx_langchain
 pip install -e .
 
 # Install from PyPI (once published)
-pip install dudoxx-extraction
+pip install dudoxx-langchain
 ```
 
 ## Environment Configuration

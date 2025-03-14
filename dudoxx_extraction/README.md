@@ -1,6 +1,6 @@
-# Dudoxx Extraction
+# Dudoxx LangChain - Extraction Module
 
-Dudoxx Extraction is a Python package for extracting structured information from large text documents using LangChain components and Large Language Models (LLMs).
+Dudoxx Extraction is a Python package for extracting structured information from large text documents using LangChain components and Large Language Models (LLMs). This module is part of the Dudoxx LangChain project maintained by the Dudoxx organization.
 
 ## Features
 
@@ -16,10 +16,10 @@ Dudoxx Extraction is a Python package for extracting structured information from
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/dudoxx-extraction.git
+git clone https://github.com/Dudoxx/dudoxx_langchain.git
 
 # Install dependencies
-cd dudoxx-extraction
+cd dudoxx_langchain
 pip install -r requirements.txt
 ```
 

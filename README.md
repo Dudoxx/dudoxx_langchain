@@ -1,6 +1,6 @@
-# Dudoxx Extraction
+# Dudoxx LangChain
 
-A robust, scalable solution for extracting structured information from large text documents using LangChain components and LLM technology.
+A robust, scalable solution for extracting structured information from large text documents using LangChain components and LLM technology. This repository is maintained by the Dudoxx organization.
 
 ## Features
 
@@ -37,8 +37,8 @@ The solution consists of several components:
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/dudoxx-extraction.git
-cd dudoxx-extraction
+git clone https://github.com/Dudoxx/dudoxx_langchain.git
+cd dudoxx_langchain
 ```
 
 2. Create and activate a virtual environment:
@@ -111,7 +111,7 @@ python standalone_example.py
 ## Project Structure
 
 ```
-dudoxx-extraction/
+dudoxx_langchain/
 ├── .env                      # Environment variables
 ├── .gitignore                # Git ignore file
 ├── README.md                 # Project documentation
