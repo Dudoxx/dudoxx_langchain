@@ -34,6 +34,10 @@ class DocumentLoaderFactory:
         Returns:
             Optional[object]: A document loader for the specified file, or None if no loader is available.
         """
+        # Get file extension
+        _, ext = os.path.splitext(file_path)
+        ext = ext.lower()
+        
         if DocxLoader.is_supported_file(file_path):
             return DocxLoader(file_path, **kwargs)
         elif HtmlLoader.is_supported_file(file_path):
@@ -44,6 +48,9 @@ class DocumentLoaderFactory:
             return ExcelLoader(file_path, **kwargs)
         elif OcrPdfLoader.is_supported_file(file_path):
             return OcrPdfLoader(file_path, **kwargs)
+        elif ext == ".txt":
+            from dudoxx_extraction.document_loaders.text_loader import TextLoader
+            return TextLoader(file_path)
         else:
             return None
 
@@ -99,10 +106,15 @@ class DocumentLoaderFactory:
         Returns:
             bool: True if the file is supported, False otherwise.
         """
+        # Get file extension
+        _, ext = os.path.splitext(file_path)
+        ext = ext.lower()
+        
         return (
             DocxLoader.is_supported_file(file_path)
             or HtmlLoader.is_supported_file(file_path)
             or CsvLoader.is_supported_file(file_path)
             or ExcelLoader.is_supported_file(file_path)
             or OcrPdfLoader.is_supported_file(file_path)
+            or ext == ".txt"  # Add support for text files
         )
