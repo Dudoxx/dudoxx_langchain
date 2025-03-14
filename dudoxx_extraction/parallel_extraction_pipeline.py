@@ -333,9 +333,17 @@ def extract_document_sync(
     """
     import asyncio
     
-    return asyncio.run(extract_document(
-        document_path=document_path,
-        domain_name=domain_name,
-        sub_domain_names=sub_domain_names,
-        output_formats=output_formats
-    ))
+    # Create a new event loop for each call to avoid issues with closed loops
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        return loop.run_until_complete(extract_document(
+            document_path=document_path,
+            domain_name=domain_name,
+            sub_domain_names=sub_domain_names,
+            output_formats=output_formats
+        ))
+    finally:
+        # Clean up the event loop
+        loop.close()

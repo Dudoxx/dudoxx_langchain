@@ -308,6 +308,10 @@ def main():
     extract_from_medical_document()
     
     # Extract from legal document
+    # Create a small delay to ensure the previous asyncio event loop is properly closed
+    import time
+    time.sleep(1)
+    
     extract_from_legal_document()
 
 
