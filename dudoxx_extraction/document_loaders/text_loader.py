@@ -9,7 +9,7 @@ from typing import List, Optional
 
 from langchain_core.documents import Document
 from langchain_core.document_loaders.base import BaseLoader
-from langchain_core.document_transformers.text_splitters import TextSplitter
+from langchain_text_splitters import TextSplitter
 
 
 class TextLoader(BaseLoader):
