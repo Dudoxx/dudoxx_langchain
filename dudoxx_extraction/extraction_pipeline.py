@@ -734,8 +734,8 @@ Text:
                     item_str = ", ".join([f"{k}: {v}" for k, v in item.items()])
                     text_output += f"- {item_str}\n"
             else:
-                # Handle list of strings
-                text_output += f"{field.replace('_', ' ').title()}: {', '.join(value)}\n"
+                # Handle list of strings or other types
+                text_output += f"{field.replace('_', ' ').title()}: {', '.join([str(item) for item in value])}\n"
         elif isinstance(value, dict):
             # Handle dictionary
             text_output += f"{field.replace('_', ' ').title()}:\n"
