@@ -1,0 +1,60 @@
+
+Patient Medical Record
+----------------------
+
+Patient Information:
+Name: John Smith
+Date of Birth: 05/15/1980
+Gender: Male
+Medical Record Number: MRN-12345678
+
+Contact Information:
+Address: 123 Main Street, Anytown, CA 12345
+Phone: (555) 123-4567
+Email: john.smith@email.com
+Emergency Contact: Jane Smith (Wife), (555) 987-6543
+
+Insurance Information:
+Provider: HealthCare Insurance
+Policy Number: HCI-987654321
+Group Number: GRP-123456
+
+Medical History:
+Allergies: Penicillin, Peanuts
+Chronic Conditions: Type 2 Diabetes (diagnosed 2015), Hypertension (diagnosed 2018)
+Previous Surgeries: Appendectomy (2010), Knee Arthroscopy (2019)
+Family History: Father - Heart Disease, Mother - Breast Cancer
+
+Current Medications:
+1. Metformin 500mg, twice daily (for diabetes)
+2. Lisinopril 10mg, once daily (for hypertension)
+3. Aspirin 81mg, once daily (preventative)
+
+Visit History:
+-------------
+
+Visit Date: 03/10/2023
+Provider: Dr. Sarah Johnson
+Chief Complaint: Persistent cough and fever
+Vital Signs: BP 130/85, HR 88, Temp 100.2°F, RR 18, O2 Sat 97%
+Assessment: Upper respiratory infection, likely viral
+Plan: Rest, increased fluids, over-the-counter cough suppressant
+Follow-up: As needed if symptoms worsen
+
+Visit Date: 07/22/2023
+Provider: Dr. Michael Chen
+Chief Complaint: Routine diabetes check-up
+Vital Signs: BP 128/82, HR 76, Temp 98.6°F, RR 16, O2 Sat 99%
+Lab Results: HbA1c 7.1% (improved from 7.5%), Fasting glucose 135 mg/dL
+Assessment: Type 2 Diabetes - well controlled
+Plan: Continue current medications, maintain diet and exercise regimen
+Follow-up: 3 months
+
+Visit Date: 11/15/2023
+Provider: Dr. Sarah Johnson
+Chief Complaint: Annual physical examination
+Vital Signs: BP 125/80, HR 72, Temp 98.4°F, RR 14, O2 Sat 99%
+Lab Results: Comprehensive metabolic panel within normal limits, Lipid panel shows slightly elevated LDL (130 mg/dL)
+Assessment: Overall good health, mild hyperlipidemia
+Plan: Dietary modifications to reduce cholesterol, continue current medications
+Follow-up: Annual physical in 1 year, diabetes check-up in 3 months

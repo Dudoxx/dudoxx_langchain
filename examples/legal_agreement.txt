@@ -1,0 +1,89 @@
+
+CONSULTING SERVICES AGREEMENT
+
+This Consulting Services Agreement (the "Agreement") is entered into as of January 15, 2023 (the "Effective Date") by and between:
+
+ABC Corporation, a Delaware corporation with its principal place of business at 123 Corporate Drive, Business City, CA 94123 ("Client")
+
+and
+
+XYZ Consulting LLC, a California limited liability company with its principal place of business at 456 Consultant Avenue, Expertise City, CA 95678 ("Consultant").
+
+WHEREAS, Client desires to retain Consultant to provide certain consulting services, and Consultant is willing to perform such services, under the terms and conditions set forth herein.
+
+NOW, THEREFORE, in consideration of the mutual covenants and agreements hereinafter set forth, the parties agree as follows:
+
+1. SERVICES
+
+1.1 Scope of Services. Consultant shall provide to Client the consulting services (the "Services") described in Exhibit A attached hereto and incorporated herein by reference.
+
+1.2 Performance of Services. Consultant shall perform the Services in accordance with the highest professional standards and shall comply with all applicable laws and regulations in the performance of the Services.
+
+2. TERM AND TERMINATION
+
+2.1 Term. This Agreement shall commence on the Effective Date and shall continue for a period of one (1) year, unless earlier terminated as provided herein (the "Term").
+
+2.2 Termination for Convenience. Either party may terminate this Agreement at any time without cause upon thirty (30) days' prior written notice to the other party.
+
+2.3 Termination for Cause. Either party may terminate this Agreement immediately upon written notice if the other party materially breaches this Agreement and fails to cure such breach within fifteen (15) days after receiving written notice thereof.
+
+3. COMPENSATION
+
+3.1 Fees. Client shall pay Consultant the fees set forth in Exhibit B attached hereto and incorporated herein by reference.
+
+3.2 Expenses. Client shall reimburse Consultant for all reasonable out-of-pocket expenses incurred by Consultant in connection with the performance of the Services, provided that such expenses are approved in advance by Client and Consultant submits appropriate documentation of such expenses.
+
+3.3 Invoicing and Payment. Consultant shall invoice Client monthly for fees and expenses. Client shall pay all undisputed amounts within thirty (30) days after receipt of each invoice.
+
+4. CONFIDENTIALITY
+
+4.1 Definition. "Confidential Information" means all non-public information disclosed by one party (the "Disclosing Party") to the other party (the "Receiving Party"), whether orally or in writing, that is designated as confidential or that reasonably should be understood to be confidential given the nature of the information and the circumstances of disclosure.
+
+4.2 Obligations. The Receiving Party shall: (a) protect the confidentiality of the Disclosing Party's Confidential Information using the same degree of care that it uses to protect the confidentiality of its own confidential information of like kind (but in no event less than reasonable care); (b) not use any Confidential Information of the Disclosing Party for any purpose outside the scope of this Agreement; and (c) not disclose Confidential Information to any third party without the Disclosing Party's prior written consent.
+
+5. INTELLECTUAL PROPERTY
+
+5.1 Client Materials. Client shall own all right, title, and interest in and to any materials provided by Client to Consultant in connection with this Agreement ("Client Materials").
+
+5.2 Deliverables. Upon full payment of all amounts due under this Agreement, Consultant assigns to Client all right, title, and interest in and to the deliverables specified in Exhibit A ("Deliverables").
+
+6. GENERAL PROVISIONS
+
+6.1 Independent Contractor. Consultant is an independent contractor and not an employee of Client.
+
+6.2 Governing Law. This Agreement shall be governed by and construed in accordance with the laws of the State of California without giving effect to any choice or conflict of law provision or rule.
+
+6.3 Entire Agreement. This Agreement, including all exhibits, constitutes the entire agreement between the parties with respect to the subject matter hereof and supersedes all prior and contemporaneous agreements or communications.
+
+IN WITNESS WHEREOF, the parties hereto have executed this Agreement as of the Effective Date.
+
+ABC CORPORATION
+
+By: ________________________
+Name: John Executive
+Title: Chief Executive Officer
+Date: January 15, 2023
+
+XYZ CONSULTING LLC
+
+By: ________________________
+Name: Jane Consultant
+Title: Managing Partner
+Date: January 15, 2023
+
+EXHIBIT A
+SCOPE OF SERVICES
+
+Consultant shall provide the following Services to Client:
+
+1. Strategic business analysis and recommendations
+2. Market research and competitive analysis
+3. Process optimization consulting
+4. Monthly progress reports and quarterly executive briefings
+
+EXHIBIT B
+COMPENSATION
+
+1. Consulting Fee: $10,000 per month
+2. Performance Bonus: Up to $25,000 based on achievement of milestones specified in Exhibit C
+3. Hourly Rate for Additional Services: $250 per hour
