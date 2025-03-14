@@ -6,6 +6,8 @@ A robust, scalable solution for extracting structured information from large tex
 
 - **Flexible Document Processing**: Support for various document formats (TXT, PDF) with automatic chunking for large documents
 - **Parallel Processing**: Concurrent processing of document chunks for faster extraction
+- **Domain-Based Extraction**: Structured domain definitions with sub-domains for focused extraction
+- **Parallel Sub-Domain Processing**: Process multiple sub-domains in parallel for each document chunk
 - **Temporal Data Normalization**: Automatic normalization of dates and construction of timelines
 - **Result Merging and Deduplication**: Smart merging of results from multiple chunks with deduplication
 - **Multiple Output Formats**: JSON, text, and XML output formats
@@ -19,11 +21,13 @@ A robust, scalable solution for extracting structured information from large tex
 The solution consists of several components:
 
 1. **ExtractionPipeline**: The main pipeline that orchestrates the extraction process
-2. **TemporalNormalizer**: Handles date normalization and timeline construction
-3. **ResultMerger**: Merges and deduplicates results from multiple chunks
-4. **OutputFormatter**: Formats extraction results in different formats
-5. **RichLogger**: Provides rich console output with syntax highlighting
-6. **Client Interface**: Both synchronous and asynchronous clients for easy integration
+2. **ParallelExtractionPipeline**: Advanced pipeline that processes multiple sub-domains in parallel
+3. **Domain Registry**: Registry for domain definitions with sub-domains and fields
+4. **TemporalNormalizer**: Handles date normalization and timeline construction
+5. **ResultMerger**: Merges and deduplicates results from multiple chunks
+6. **OutputFormatter**: Formats extraction results in different formats
+7. **RichLogger**: Provides rich console output with syntax highlighting
+8. **Client Interface**: Both synchronous and asynchronous clients for easy integration
 
 ## Installation
 
@@ -96,16 +100,19 @@ result = client.extract_file(
 )
 ```
 
-### Running the Example
+### Running the Examples
 
 The repository includes example scripts that demonstrate the extraction capabilities:
 
 ```bash
-# Run the example script
-python dudoxx_extraction/example.py
+# Run the basic example script
+python dudoxx_extraction_example.py
 
-# Or run the standalone example
+# Run the standalone example
 python standalone_example.py
+
+# Run the parallel extraction example
+python examples/parallel_extraction_example.py
 ```
 
 ## Project Structure
@@ -151,6 +158,76 @@ OPENAI_EMBEDDING_MODEL=embedder
 ```
 
 ## Advanced Usage
+
+### Using the Parallel Extraction Pipeline
+
+The parallel extraction pipeline allows you to process multiple sub-domains in parallel for each document chunk:
+
+```python
+from dudoxx_extraction.parallel_extraction_pipeline import extract_document_sync
+
+# Extract from file with all sub-domains
+result = extract_document_sync(
+    document_path="examples/medical_record.txt",
+    domain_name="medical",
+    output_formats=["json", "text"]
+)
+
+# Extract from file with specific sub-domains
+result = extract_document_sync(
+    document_path="examples/medical_record.txt",
+    domain_name="medical",
+    sub_domain_names=["patient_info", "medications", "diagnoses"],
+    output_formats=["json", "text"]
+)
+```
+
+### Creating Custom Domains
+
+You can create custom domains with sub-domains for focused extraction:
+
+```python
+from dudoxx_extraction.domains.domain_definition import DomainDefinition, SubDomainDefinition, FieldDefinition
+from dudoxx_extraction.domains.domain_registry import DomainRegistry
+
+# Create a sub-domain
+custom_subdomain = SubDomainDefinition(
+    name="custom_subdomain",
+    description="custom information",
+    fields=[
+        FieldDefinition(
+            name="field1",
+            description="Description of field1",
+            type="string",
+            is_required=True
+        ),
+        FieldDefinition(
+            name="field2",
+            description="Description of field2",
+            type="list",
+            is_required=False
+        )
+    ]
+)
+
+# Create a domain with the sub-domain
+custom_domain = DomainDefinition(
+    name="custom_domain",
+    description="Custom domain for specific documents",
+    sub_domains=[custom_subdomain]
+)
+
+# Register the domain
+registry = DomainRegistry()
+registry.register_domain(custom_domain)
+
+# Use the domain with the parallel extraction pipeline
+result = extract_document_sync(
+    document_path="path/to/document.txt",
+    domain_name="custom_domain",
+    output_formats=["json", "text"]
+)
+```
 
 ### Customizing the Pipeline
 
