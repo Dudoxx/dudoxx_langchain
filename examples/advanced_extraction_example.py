@@ -340,17 +340,17 @@ class AdvancedExtractionExample:
         # Extract with structured output
         structured_result = self.extract_with_structured_output(MEDICAL_DOCUMENT)
         self.console.print("\nStructured Output Result:")
-        self.console.print(structured_result.json(indent=2))
+        self.console.print(json.dumps(structured_result.model_dump(), indent=2))
         
         # Extract with semantic search
         semantic_result = self.extract_with_semantic_search(MEDICAL_DOCUMENT)
         self.console.print("\nSemantic Search Result:")
-        self.console.print(semantic_result.json(indent=2))
+        self.console.print(json.dumps(semantic_result.model_dump(), indent=2))
         
         # Extract with ReAct pattern
         react_result = self.extract_with_react_pattern(MEDICAL_DOCUMENT)
         self.console.print("\nReAct Pattern Result:")
-        self.console.print(react_result.json(indent=2))
+        self.console.print(json.dumps(react_result.model_dump(), indent=2))
         
         # Extract from file
         file_result = self.extract_from_file(str(example_file))
