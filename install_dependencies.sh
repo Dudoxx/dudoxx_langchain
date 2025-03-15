@@ -18,7 +18,7 @@ pip install sse-starlette
 
 # Install PDF processing dependencies
 echo "Installing PDF processing dependencies..."
-pip install pypdf pypdfium2
+pip install pypdf pypdfium2 pdfminer.six
 
 # Make the script executable
 chmod +x install_dependencies.sh

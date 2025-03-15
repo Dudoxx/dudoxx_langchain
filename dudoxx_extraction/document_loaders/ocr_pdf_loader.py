@@ -6,12 +6,28 @@ with OCR (Optical Character Recognition) capabilities.
 """
 
 from typing import List, Optional, Union, Sequence, Dict, Any
-from langchain_community.document_loaders import PyPDFLoader, PyPDFium2Loader
-from langchain_core.documents import Document
+import os
 import logging
+from rich.console import Console
+from rich.panel import Panel
+from rich.logging import RichHandler
+from langchain_community.document_loaders import PyPDFLoader, PyPDFium2Loader, PDFMinerLoader
+from langchain_core.documents import Document
 
-# Set up logging
-logger = logging.getLogger(__name__)
+# Set up rich console for logging
+console = Console()
+
+# Configure logging with rich handler if not already configured
+if not logging.getLogger().handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(console=console, rich_tracebacks=True)]
+    )
+
+# Get logger for this module
+logger = logging.getLogger("ocr_pdf_loader")
 
 
 class OcrPdfLoader:
@@ -46,14 +62,58 @@ class OcrPdfLoader:
         self.file_path = file_path
         self.use_ocr = use_ocr
         
-        try:
-            # Use PyPDFLoader as the primary loader
-            self.loader = PyPDFLoader(file_path=file_path)
-            logger.info(f"Using PyPDFLoader for {file_path}")
-        except Exception as e:
-            logger.warning(f"PyPDFLoader failed: {e}. Falling back to PyPDFium2Loader.")
-            # Fallback to PyPDFium2Loader
-            self.loader = PyPDFium2Loader(file_path=file_path)
+        console.print(Panel(
+            f"[bold blue]Initializing PDF loader for: {file_path}[/]\n"
+            f"[cyan]Use OCR: {use_ocr}[/]\n"
+            f"[cyan]OCR Languages: {ocr_languages}[/]",
+            title="PDF Loader Initialization",
+            border_style="blue"
+        ))
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            error_msg = f"PDF file does not exist: {file_path}"
+            logger.error(error_msg)
+            console.print(Panel(
+                f"[bold red]Error: {error_msg}[/]",
+                title="File Not Found",
+                border_style="red"
+            ))
+            raise FileNotFoundError(error_msg)
+        
+        # Check file size
+        file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
+        logger.info(f"PDF file size: {file_size:.2f} MB")
+        
+        # Try different PDF loaders in sequence
+        loaders_to_try = [
+            ("PyPDFLoader", lambda: PyPDFLoader(file_path=file_path)),
+            ("PDFMinerLoader", lambda: PDFMinerLoader(file_path=file_path)),
+            ("PyPDFium2Loader", lambda: PyPDFium2Loader(file_path=file_path))
+        ]
+        
+        for loader_name, loader_factory in loaders_to_try:
+            try:
+                logger.info(f"Trying {loader_name} for {file_path}")
+                self.loader = loader_factory()
+                self.loader_name = loader_name
+                console.print(f"[green]Successfully initialized {loader_name} for {file_path}[/]")
+                break
+            except Exception as e:
+                error_msg = f"{loader_name} initialization failed: {str(e)}"
+                logger.warning(error_msg)
+                console.print(f"[yellow]{error_msg}[/]")
+                continue
+        else:
+            # If all loaders fail
+            error_msg = f"All PDF loaders failed for {file_path}"
+            logger.error(error_msg)
+            console.print(Panel(
+                f"[bold red]Error: {error_msg}[/]",
+                title="PDF Loader Error",
+                border_style="red"
+            ))
+            raise ValueError(error_msg)
 
     def load(self) -> List[Document]:
         """
@@ -62,7 +122,62 @@ class OcrPdfLoader:
         Returns:
             List[Document]: A list of LangChain Document objects.
         """
-        return self.loader.load()
+        console.print(Panel(
+            f"[bold blue]Loading PDF file: {self.file_path}[/]\n"
+            f"[cyan]Using loader: {getattr(self, 'loader_name', type(self.loader).__name__)}[/]",
+            title="PDF Loading Process",
+            border_style="blue"
+        ))
+        
+        try:
+            docs = self.loader.load()
+            
+            # Log document information
+            doc_count = len(docs)
+            logger.info(f"Loaded {doc_count} document(s) from PDF")
+            
+            if doc_count > 0:
+                # Calculate total text length
+                total_text_length = sum(len(doc.page_content) for doc in docs)
+                logger.info(f"Total extracted text length: {total_text_length} characters")
+                
+                # Log sample of extracted text
+                if total_text_length > 0:
+                    sample_text = docs[0].page_content[:200] + "..." if len(docs[0].page_content) > 200 else docs[0].page_content
+                    console.print(Panel(
+                        f"[bold green]PDF loaded successfully[/]\n"
+                        f"[cyan]Document count: {doc_count}[/]\n"
+                        f"[cyan]Total text length: {total_text_length} characters[/]\n"
+                        f"[cyan]Sample text:[/] {sample_text}",
+                        title="PDF Content Sample",
+                        border_style="green"
+                    ))
+                else:
+                    console.print(Panel(
+                        f"[bold yellow]Warning: No text extracted from PDF[/]\n"
+                        f"[yellow]Document count: {doc_count}[/]\n"
+                        f"[yellow]Total text length: 0 characters[/]",
+                        title="Empty PDF Content",
+                        border_style="yellow"
+                    ))
+            else:
+                console.print(Panel(
+                    f"[bold yellow]Warning: No documents extracted from PDF[/]",
+                    title="Empty PDF Result",
+                    border_style="yellow"
+                ))
+            
+            return docs
+        except Exception as e:
+            error_msg = f"Error loading PDF {self.file_path}: {str(e)}"
+            logger.exception(error_msg)
+            console.print(Panel(
+                f"[bold red]Error loading PDF: {self.file_path}[/]\n"
+                f"[red]Error: {str(e)}[/]",
+                title="PDF Loading Error",
+                border_style="red"
+            ))
+            raise
 
     def load_and_split(self, text_splitter) -> List[Document]:
         """

@@ -18,6 +18,7 @@ tiktoken
 # unstructured
 pypdf
 pypdfium2
+pdfminer.six
 pdf2image
 pytesseract
 python-docx
