@@ -760,140 +760,117 @@ Be thorough in your analysis and provide clear reasoning for your recommendation
         }
 
 
-    def get_extraction_schema(self, query: str, min_confidence: float = 0.8) -> Dict[str, Dict[str, List[Tuple[str, float]]]]:
+    def get_extraction_schema(self, query: str) -> Dict[str, Dict[str, List[Tuple[str, float]]]]:
         """
-        Get a recommended extraction schema for a query.
+        Get a recommended extraction schema for a query using LLM.
         
         Args:
             query: User query
-            min_confidence: Minimum confidence threshold for recommendations
             
         Returns:
             Dictionary with recommended extraction schema
         """
-        # Identify domains and fields
-        result = self.identify_domains_for_query(query)
+        # Create a prompt for the LLM to directly identify the most relevant domains and fields
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a domain identification expert. Your task is to analyze the given user query and identify ONLY the most relevant domain and fields that are EXPLICITLY requested.
+
+Be extremely precise and focused on EXACTLY what the user is asking for. Do not include any domains or fields that are not directly mentioned or clearly implied by the query.
+
+For example:
+- If the query is "What is the patient's name?", you should ONLY identify the medical domain and the patient_name field.
+- If the query is "What medications is the patient taking?", you should ONLY identify the medical domain and the medications field.
+
+DO NOT include additional fields that might be "nice to have" but weren't requested. Be minimalist and precise.
+
+Available domains include:
+- medical: For medical records, patient information, diagnoses, etc.
+- legal: For legal documents, contracts, agreements, etc.
+- demographic: For personal and organizational information
+- general: For general content that doesn't fit other domains
+
+Each domain has multiple sub-domains with specific fields. Focus only on what's explicitly requested.
+
+Return your answer in this exact format:
+{{
+  "domain": "name_of_primary_domain",
+  "sub_domains": {{
+    "sub_domain_name": ["field1", "field2"]
+  }}
+}}
+
+Include ONLY ONE domain and ONLY the fields that are DIRECTLY requested in the query."""),
+            ("human", "Query: {query}")
+        ])
         
-        # Get primary domains with context-aware filtering
-        query_lower = query.lower()
-        query_terms = set(query_lower.split())
+        # Create chain
+        chain = prompt | self.llm
         
-        # Calculate relevance score based on query terms
-        domain_relevance = {}
-        for domain_name, confidence in result.highest_rated_domains:
-            if confidence < min_confidence:
-                continue
-                
-            domain = self.domain_registry.get_domain(domain_name)
-            if not domain:
-                continue
+        # Run chain
+        response = chain.invoke({"query": query})
+        
+        # Parse the response to extract domain and fields
+        try:
+            # Try to extract JSON from the response
+            import re
+            import json
             
-            # Calculate semantic relevance
-            domain_text = domain.name.lower() + " " + domain.description.lower()
-            domain_terms = set(domain_text.split())
-            
-            # Calculate weighted term overlap
-            overlap = len(query_terms.intersection(domain_terms))
-            overlap_ratio = overlap / len(query_terms) if query_terms else 0
-            
-            # Only include domains with significant overlap or high confidence
-            if overlap_ratio < 0.3 and confidence < 0.9:
-                continue
+            # Look for JSON pattern in the response
+            json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                parsed_response = json.loads(json_str)
                 
-            # Calculate final relevance score
-            domain_relevance[domain_name] = confidence + (overlap_ratio * 0.2)
-        
-        # Sort domains by relevance and take top 2 (more focused)
-        sorted_domains = sorted(domain_relevance.items(), key=lambda x: x[1], reverse=True)
-        top_domains = [domain for domain, _ in sorted_domains[:2]]
-        
-        # If no domains passed the filters, take the highest confidence domain
-        if not top_domains and result.highest_rated_domains:
-            top_domains = [result.highest_rated_domains[0][0]]
-        
-        # Create extraction schema with focused field filtering
-        extraction_schema = {}
-        
-        # Calculate field relevance with semantic matching
-        field_relevance = {}
-        for field_path, confidence in result.highest_rated_fields:
-            if confidence < min_confidence:
-                continue
+                domain = parsed_response.get("domain")
+                sub_domains = parsed_response.get("sub_domains", {})
                 
-            parts = field_path.split('.')
-            if len(parts) != 3:
-                continue
-                
-            domain_name, sub_domain_name, field_name = parts
-            
-            if domain_name not in top_domains:
-                continue
-                
-            # Get field from registry
-            domain = self.domain_registry.get_domain(domain_name)
-            if not domain:
-                continue
-                
-            sub_domain = domain.get_sub_domain(sub_domain_name)
-            if not sub_domain:
-                continue
-                
-            field = None
-            for f in sub_domain.fields:
-                if f.name == field_name:
-                    field = f
-                    break
+                # Convert to extraction schema format
+                extraction_schema = {}
+                if domain:
+                    extraction_schema[domain] = {}
+                    for sub_domain, fields in sub_domains.items():
+                        extraction_schema[domain][sub_domain] = [(field, 1.0) for field in fields]
+            else:
+                # Fallback to a simple domain identification
+                result = self.identify_domains_for_query(query)
+                if result.recommended_domains:
+                    domain = result.recommended_domains[0]
+                    extraction_schema = {domain: {}}
                     
-            if not field:
-                continue
+                    # Get fields for this domain
+                    if domain in result.recommended_fields:
+                        for field_path in result.recommended_fields[domain]:
+                            parts = field_path.split('.')
+                            if len(parts) == 2:
+                                sub_domain, field = parts
+                                if sub_domain not in extraction_schema[domain]:
+                                    extraction_schema[domain][sub_domain] = []
+                                extraction_schema[domain][sub_domain].append((field, 0.9))
+                else:
+                    # Default to general domain if nothing is identified
+                    extraction_schema = {"general": {"default": [("content", 0.8)]}}
+        except Exception as e:
+            # Fallback to a simple domain identification
+            self.console.print(f"[red]Error parsing LLM response: {e}[/]")
+            self.console.print(f"[yellow]Response: {response.content}[/]")
             
-            # Calculate semantic relevance
-            field_text = field.name.lower() + " " + field.description.lower()
-            field_terms = set(field_text.split())
-            
-            # Calculate weighted term overlap
-            overlap = len(query_terms.intersection(field_terms))
-            overlap_ratio = overlap / len(query_terms) if query_terms else 0
-            
-            # Calculate relevance boost based on query term presence
-            relevance_boost = 0.0
-            
-            # Higher boost for fields whose name or description contains query terms
-            for term in query_terms:
-                if term in field.name.lower():
-                    relevance_boost += 0.15
-                elif term in field.description.lower():
-                    relevance_boost += 0.1
-                elif term in sub_domain_name.lower():
-                    relevance_boost += 0.05
-            
-            # Only include fields with significant overlap or high confidence
-            if overlap_ratio < 0.2 and confidence < 0.85 and relevance_boost < 0.1:
-                continue
+            # Use a simplified approach
+            result = self.identify_domains_for_query(query)
+            if result.recommended_domains:
+                domain = result.recommended_domains[0]
+                extraction_schema = {domain: {}}
                 
-            # Calculate final relevance score
-            field_relevance[field_path] = confidence + (overlap_ratio * 0.15) + relevance_boost
-        
-        # Sort fields by relevance and take only the most relevant ones
-        sorted_fields = sorted(field_relevance.items(), key=lambda x: x[1], reverse=True)
-        
-        # Take top 6 fields (more focused)
-        top_field_paths = [field_path for field_path, _ in sorted_fields[:6]]
-        
-        # Build extraction schema from top fields
-        for field_path in top_field_paths:
-            parts = field_path.split('.')
-            domain_name, sub_domain_name, field_name = parts
-            
-            if domain_name not in extraction_schema:
-                extraction_schema[domain_name] = {}
-            
-            if sub_domain_name not in extraction_schema[domain_name]:
-                extraction_schema[domain_name][sub_domain_name] = []
-            
-            # Use the original confidence from field_relevance
-            confidence = field_relevance[field_path]
-            extraction_schema[domain_name][sub_domain_name].append((field_name, confidence))
+                # Get fields for this domain
+                if domain in result.recommended_fields:
+                    for field_path in result.recommended_fields[domain]:
+                        parts = field_path.split('.')
+                        if len(parts) == 2:
+                            sub_domain, field = parts
+                            if sub_domain not in extraction_schema[domain]:
+                                extraction_schema[domain][sub_domain] = []
+                            extraction_schema[domain][sub_domain].append((field, 0.9))
+            else:
+                # Default to general domain if nothing is identified
+                extraction_schema = {"general": {"default": [("content", 0.8)]}}
         
         # Log the extraction schema if rich logging is enabled
         if self.use_rich_logging:

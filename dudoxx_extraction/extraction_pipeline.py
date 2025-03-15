@@ -21,9 +21,12 @@ from pydantic import BaseModel, Field
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 try:
-    from langchain_core.chains import LLMChain
-except ImportError:
     from langchain.chains import LLMChain
+except ImportError:
+    try:
+        from langchain_core.chains import LLMChain
+    except ImportError:
+        from langchain_community.chains import LLMChain
 import numpy as np
 
 # Try to import from langchain_openai (recommended)
@@ -162,13 +165,13 @@ from dudoxx_extraction.configuration_service import ConfigurationService
 class ResultMerger:
     """Merges and deduplicates results from multiple chunks."""
     
-    def __init__(self, embedding_model=None, deduplication_threshold=0.9):
+    def __init__(self, embedding_model=None, deduplication_threshold=0.85):
         """
         Initialize with embedding model for deduplication.
         
         Args:
             embedding_model: LangChain embedding model
-            deduplication_threshold: Similarity threshold for deduplication
+            deduplication_threshold: Similarity threshold for deduplication (lowered from 0.9 to 0.85 for better deduplication)
         """
         # Use the embedding model from configuration service
         if embedding_model is None:
@@ -194,10 +197,23 @@ class ResultMerger:
         else:
             self.embedding_model = embedding_model
         self.deduplication_threshold = deduplication_threshold
+        
+        # Define priority fields that should be preserved even if null in some chunks
+        self.priority_fields = [
+            "patient_name", "date_of_birth", "gender", "medical_record_number",
+            "full_name", "name", "first_name", "last_name"
+        ]
+        
+        # Define field groups for merging related fields
+        self.field_groups = {
+            "name_fields": ["patient_name", "full_name", "name", "first_name", "last_name"],
+            "date_fields": ["date_of_birth", "birth_date", "dob"],
+            "id_fields": ["medical_record_number", "mrn", "id", "patient_id"]
+        }
     
     def merge_results(self, chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Merge results from multiple chunks.
+        Merge results from multiple chunks with improved handling of key fields.
         
         Args:
             chunk_results: List of results from chunks
@@ -205,54 +221,180 @@ class ResultMerger:
         Returns:
             Merged and deduplicated result
         """
+        if not chunk_results:
+            return {"_metadata": {"source_chunks": {}, "confidence": {}}}
+        
         merged_fields = {}
         field_sources = {}
         field_confidences = {}
+        field_non_null_values = {}  # Track non-null values for each field
         
-        # Collect all field values
+        # First pass: Collect all field values and track non-null values
         for i, result in enumerate(chunk_results):
             for field_name, value in result.items():
+                if field_name.startswith("_"):
+                    # Skip metadata fields in the first pass
+                    continue
+                    
                 if field_name not in merged_fields:
                     merged_fields[field_name] = []
                     field_sources[field_name] = []
                     field_confidences[field_name] = []
+                    field_non_null_values[field_name] = []
                 
                 merged_fields[field_name].append(value)
                 field_sources[field_name].append(i)
-                # Assuming confidence is 1.0 if not provided
-                field_confidences[field_name].append(1.0)
+                
+                # Get confidence from metadata if available, otherwise default to 1.0
+                confidence = 1.0
+                if "_metadata" in result and "confidence" in result["_metadata"]:
+                    field_confidence = result["_metadata"]["confidence"].get(field_name)
+                    if field_confidence and isinstance(field_confidence, list) and len(field_confidence) > 0:
+                        confidence = field_confidence[0]
+                
+                field_confidences[field_name].append(confidence)
+                
+                # Track non-null values
+                if value is not None and value != "":
+                    field_non_null_values[field_name].append((i, value, confidence))
         
-        # Deduplicate and merge
+        # Second pass: Merge and deduplicate fields
         final_result = {}
         for field_name, values in merged_fields.items():
-            if len(values) == 1:
-                # Only one value, no need to deduplicate
-                final_result[field_name] = values[0]
+            # Check if this field has any non-null values
+            non_null_values = field_non_null_values.get(field_name, [])
+            
+            if not non_null_values:
+                # No non-null values, check if this is a priority field
+                if field_name in self.priority_fields:
+                    # For priority fields, keep null value to maintain schema
+                    final_result[field_name] = None
+                # Otherwise, skip this field
+                continue
+            
+            # Check if this field belongs to a field group
+            field_group = None
+            for group_name, group_fields in self.field_groups.items():
+                if field_name in group_fields:
+                    field_group = group_name
+                    break
+            
+            # If field is part of a group, check for values in related fields
+            if field_group:
+                # Collect all non-null values from related fields
+                related_values = []
+                for related_field in self.field_groups[field_group]:
+                    if related_field in field_non_null_values:
+                        related_values.extend(field_non_null_values[related_field])
+                
+                # If we have related values and this field has no values, use them for this field
+                if related_values and not non_null_values:
+                    # Sort by confidence
+                    related_values.sort(key=lambda x: x[2], reverse=True)
+                    # Use the highest confidence value
+                    final_result[field_name] = related_values[0][1]
+                    continue
+            
+            # Handle based on value type
+            if len(non_null_values) == 1:
+                # Only one non-null value, use it directly
+                final_result[field_name] = non_null_values[0][1]
             else:
-                # Multiple values, need to deduplicate
-                if isinstance(values[0], list):
-                    # Field is a list, merge all items and deduplicate
+                # Multiple non-null values, need to merge/deduplicate
+                if all(isinstance(val[1], list) for val in non_null_values):
+                    # Field is a list in all chunks, merge all items and deduplicate
                     all_items = []
-                    for value in values:
-                        if value is not None:
+                    for _, value, _ in non_null_values:
+                        if value:  # Check if value is not None or empty
                             all_items.extend(value)
+                    
+                    # Deduplicate the merged list
                     final_result[field_name] = self._deduplicate_list(all_items)
+                elif all(isinstance(val[1], dict) for val in non_null_values):
+                    # Field is a dictionary in all chunks, merge by keys with confidence weighting
+                    merged_dict = self._merge_dictionaries([value for _, value, _ in non_null_values], 
+                                                          [conf for _, _, conf in non_null_values])
+                    final_result[field_name] = merged_dict
                 else:
-                    # Field is a single value, choose the most confident one
-                    best_index = np.argmax(field_confidences[field_name])
-                    final_result[field_name] = values[best_index]
+                    # Field is a single value or mixed types, choose the most confident one
+                    # Sort by confidence
+                    non_null_values.sort(key=lambda x: x[2], reverse=True)
+                    final_result[field_name] = non_null_values[0][1]
         
-        # Add metadata
-        final_result["_metadata"] = {
-            "source_chunks": field_sources,
-            "confidence": field_confidences
-        }
+        # Preserve metadata from all chunks
+        combined_metadata = {"source_chunks": {}, "confidence": {}}
+        
+        # Combine metadata from all chunks
+        for i, result in enumerate(chunk_results):
+            if "_metadata" in result:
+                # Add source chunks
+                if "source_chunks" in result["_metadata"]:
+                    for field, sources in result["_metadata"]["source_chunks"].items():
+                        if field not in combined_metadata["source_chunks"]:
+                            combined_metadata["source_chunks"][field] = []
+                        combined_metadata["source_chunks"][field].extend(sources)
+                
+                # Add confidence values
+                if "confidence" in result["_metadata"]:
+                    for field, confidences in result["_metadata"]["confidence"].items():
+                        if field not in combined_metadata["confidence"]:
+                            combined_metadata["confidence"][field] = []
+                        combined_metadata["confidence"][field].extend(confidences)
+        
+        # Add field sources and confidences from this merge operation
+        for field, sources in field_sources.items():
+            combined_metadata["source_chunks"][field] = sources
+        
+        for field, confidences in field_confidences.items():
+            combined_metadata["confidence"][field] = confidences
+        
+        # Add list of merged fields
+        combined_metadata["merged_fields"] = list(field_non_null_values.keys())
+        
+        # Add metadata to final result
+        final_result["_metadata"] = combined_metadata
         
         return final_result
     
+    def _merge_dictionaries(self, dicts: List[Dict[str, Any]], confidences: List[float]) -> Dict[str, Any]:
+        """
+        Merge dictionaries with confidence weighting.
+        
+        Args:
+            dicts: List of dictionaries to merge
+            confidences: Confidence scores for each dictionary
+            
+        Returns:
+            Merged dictionary
+        """
+        if not dicts:
+            return {}
+        
+        # Initialize with first dictionary
+        result = dicts[0].copy()
+        
+        # Merge remaining dictionaries
+        for i, d in enumerate(dicts[1:], 1):
+            for key, value in d.items():
+                if key not in result:
+                    # New key, add it
+                    result[key] = value
+                elif result[key] is None and value is not None:
+                    # Replace null value with non-null
+                    result[key] = value
+                elif isinstance(result[key], list) and isinstance(value, list):
+                    # Merge lists
+                    result[key].extend(value)
+                    result[key] = self._deduplicate_list(result[key])
+                elif confidences[i] > confidences[0]:
+                    # Higher confidence, replace value
+                    result[key] = value
+        
+        return result
+    
     def _deduplicate_list(self, items: List[Any]) -> List[Any]:
         """
-        Deduplicate a list of items using embeddings.
+        Deduplicate a list of items using embeddings for text and equality for other types.
         
         Args:
             items: List of items to deduplicate
@@ -263,44 +405,105 @@ class ResultMerger:
         if not items:
             return []
         
+        # Handle empty or None items
+        items = [item for item in items if item is not None and (not isinstance(item, str) or item.strip())]
+        
+        if not items:
+            return []
+        
         if all(isinstance(item, str) for item in items):
             # Text items, use embeddings for deduplication
             unique_items = []
             
             # Create vector store with first item
-            vector_store = FAISS.from_texts([items[0]], self.embedding_model)
-            unique_items.append(items[0])
-            
-            # Check each item against vector store
-            for item in items[1:]:
-                results = vector_store.similarity_search_with_score(item, k=1)
+            try:
+                vector_store = FAISS.from_texts([items[0]], self.embedding_model)
+                unique_items.append(items[0])
                 
-                if not results or results[0][1] > self.deduplication_threshold:
-                    # Item is unique, add to vector store and unique items
-                    vector_store.add_texts([item])
+                # Check each item against vector store
+                for item in items[1:]:
+                    # Skip very short items (likely noise)
+                    if len(item.strip()) < 3:
+                        continue
+                        
+                    results = vector_store.similarity_search_with_score(item, k=1)
+                    
+                    if not results or results[0][1] > self.deduplication_threshold:
+                        # Item is unique, add to vector store and unique items
+                        vector_store.add_texts([item])
+                        unique_items.append(item)
+                
+                return unique_items
+            except Exception as e:
+                # Fall back to simple deduplication if embedding fails
+                print(f"Warning: Embedding-based deduplication failed: {e}")
+                return list(set(items))
+        elif all(isinstance(item, dict) for item in items):
+            # For dictionaries, deduplicate by serializing to JSON
+            unique_items = []
+            seen_json = set()
+            
+            for item in items:
+                item_json = json.dumps(item, sort_keys=True)
+                if item_json not in seen_json:
+                    seen_json.add(item_json)
                     unique_items.append(item)
             
             return unique_items
         else:
             # Non-text items, use equality for deduplication
-            return list(set(items))
+            # This works for numbers, booleans, and other hashable types
+            try:
+                return list(set(items))
+            except TypeError:
+                # Fall back for unhashable types
+                unique_items = []
+                for item in items:
+                    if item not in unique_items:
+                        unique_items.append(item)
+                return unique_items
 
+
+# Import the null filter
+from dudoxx_extraction.null_filter import DudoxxNullFilter, filter_extraction_result
 
 class OutputFormatter:
     """Formats extraction results in different formats."""
     
-    def format_json(self, merged_result: Dict[str, Any], include_metadata: bool = True) -> Dict[str, Any]:
+    def __init__(self, apply_null_filter: bool = False, null_filter: Optional[DudoxxNullFilter] = None):
+        """
+        Initialize the output formatter.
+        
+        Args:
+            apply_null_filter: Whether to apply null filtering by default
+            null_filter: Custom null filter instance (if None, a default one will be created)
+        """
+        self.apply_null_filter = apply_null_filter
+        self.null_filter = null_filter or DudoxxNullFilter()
+    
+    def format_json(self, merged_result: Dict[str, Any], include_metadata: bool = True, apply_null_filter: Optional[bool] = None) -> Dict[str, Any]:
         """
         Format result as JSON.
         
         Args:
             merged_result: Merged extraction result
             include_metadata: Whether to include metadata
+            apply_null_filter: Whether to apply null filtering (overrides default setting)
             
         Returns:
             Formatted JSON result
         """
         result = merged_result.copy()
+        
+        # Apply null filtering if requested
+        should_filter = self.apply_null_filter if apply_null_filter is None else apply_null_filter
+        if should_filter:
+            # Preserve metadata if requested
+            preserve_fields = []
+            if include_metadata:
+                preserve_fields = [key for key in result if key.startswith("_")]
+            
+            result = self.null_filter.filter_result(result)
         
         if not include_metadata:
             # Remove metadata fields
@@ -557,14 +760,28 @@ class ExtractionPipeline:
         
         # Step 6: Format output
         output = {}
+        
+        # Create a null filter to remove null, N/A, and empty values
+        null_filter = DudoxxNullFilter(
+            remove_null=True,
+            remove_na=True,
+            remove_empty_strings=True,
+            remove_zeros=False,
+            preserve_metadata=True
+        )
+        
+        # Apply null filter to the merged result
+        filtered_result = null_filter.filter_result(merged_result)
+        
+        # Format the filtered result
         if "json" in output_formats:
-            output["json_output"] = self.output_formatter.format_json(merged_result)
+            output["json_output"] = self.output_formatter.format_json(filtered_result)
         
         if "text" in output_formats:
-            output["text_output"] = self.output_formatter.format_text(merged_result)
+            output["text_output"] = self.output_formatter.format_text(filtered_result)
             
         if "xml" in output_formats:
-            output["xml_output"] = self.output_formatter.format_xml(merged_result)
+            output["xml_output"] = self.output_formatter.format_xml(filtered_result)
         
         # Add metadata
         processing_time = time.time() - start_time
@@ -748,10 +965,44 @@ Text:
     # Calculate processing time
     processing_time = time.time() - start_time
     
+    # Create a null filter to remove null, N/A, and empty values
+    null_filter = DudoxxNullFilter(
+        remove_null=True,
+        remove_na=True,
+        remove_empty_strings=True,
+        remove_zeros=False,
+        preserve_metadata=True
+    )
+    
+    # Apply null filter to the result
+    filtered_json_output = null_filter.filter_result(json_output)
+    
+    # Create text output from filtered result
+    filtered_text_output = ""
+    for field, value in filtered_json_output.items():
+        if isinstance(value, list):
+            if all(isinstance(item, dict) for item in value):
+                # Handle list of dictionaries (e.g., visits)
+                filtered_text_output += f"\n{field.replace('_', ' ').title()}:\n"
+                for item in value:
+                    item_str = ", ".join([f"{k}: {v}" for k, v in item.items()])
+                    filtered_text_output += f"- {item_str}\n"
+            else:
+                # Handle list of strings or other types
+                filtered_text_output += f"{field.replace('_', ' ').title()}: {', '.join([str(item) for item in value])}\n"
+        elif isinstance(value, dict):
+            # Handle dictionary
+            filtered_text_output += f"{field.replace('_', ' ').title()}:\n"
+            for k, v in value.items():
+                filtered_text_output += f"- {k}: {v}\n"
+        else:
+            # Handle simple value
+            filtered_text_output += f"{field.replace('_', ' ').title()}: {value}\n"
+    
     # Create result
     result = {
-        "json_output": json_output,
-        "text_output": text_output,
+        "json_output": filtered_json_output,
+        "text_output": filtered_text_output,
         "metadata": {
             "processing_time": processing_time,
             "chunk_count": 1,

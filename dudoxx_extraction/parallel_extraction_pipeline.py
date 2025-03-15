@@ -32,6 +32,7 @@ from dudoxx_extraction.domains.domain_registry import DomainRegistry
 from dudoxx_extraction.domains.domain_definition import DomainDefinition, SubDomainDefinition
 from dudoxx_extraction.document_loaders.document_loader_factory import DocumentLoaderFactory
 from dudoxx_extraction.extraction_pipeline import ResultMerger, TemporalNormalizer, OutputFormatter
+from dudoxx_extraction.null_filter import DudoxxNullFilter, filter_extraction_result
 
 
 class ParallelExtractionPipeline:
@@ -104,7 +105,8 @@ class ParallelExtractionPipeline:
         document_path: str,
         domain_name: str,
         sub_domain_names: Optional[List[str]] = None,
-        output_formats: Optional[List[str]] = None
+        output_formats: Optional[List[str]] = None,
+        request_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process a document through the parallel extraction pipeline using thread pool.
@@ -155,6 +157,23 @@ class ParallelExtractionPipeline:
         for chunk in chunks:
             for sub_domain in sub_domains:
                 tasks.append((chunk, sub_domain))
+        
+        # Try to import progress manager for progress updates
+        has_progress_manager = False
+        if request_id:
+            try:
+                from dudoxx_extraction_api.progress_manager import add_progress_update
+                has_progress_manager = True
+                
+                # Send progress update
+                add_progress_update(
+                    request_id, 
+                    "processing", 
+                    f"Processing document with {len(chunks)} chunks and {len(sub_domains)} sub-domains...", 
+                    30
+                )
+            except ImportError:
+                self.console.print("[yellow]Warning: Progress manager not available, using local progress display[/]")
         
         # Create a progress display
         with Progress(
@@ -230,22 +249,66 @@ class ParallelExtractionPipeline:
             
             chunk_results[chunk_index][sub_domain_name] = result["result"]
         
-        # Step 5: Merge results from sub-domains for each chunk
+        # Step 5: Merge results from sub-domains for each chunk with improved tracking
         self.console.print("[green]Merging results from sub-domains...[/]")
+        if has_progress_manager and request_id:
+            add_progress_update(request_id, "processing", "Merging results from sub-domains...", 70)
         merged_chunk_results = []
         for chunk_index, sub_domain_results in chunk_results.items():
             merged_result = {}
+            
+            # Track source sub-domains for each field
+            field_sources = {}
+            field_confidences = {}
+            
             for sub_domain_name, result in sub_domain_results.items():
-                merged_result.update(result)
+                for field_name, value in result.items():
+                    # Track field source
+                    if field_name not in field_sources:
+                        field_sources[field_name] = []
+                        field_confidences[field_name] = []
+                    
+                    field_sources[field_name].append(sub_domain_name)
+                    field_confidences[field_name].append(1.0)  # Default confidence
+                    
+                    # Update field value
+                    if field_name not in merged_result:
+                        # New field
+                        merged_result[field_name] = value
+                    elif merged_result[field_name] is None and value is not None:
+                        # Replace null value with non-null
+                        merged_result[field_name] = value
+                    elif isinstance(merged_result[field_name], list) and isinstance(value, list):
+                        # Merge lists
+                        merged_result[field_name].extend(value)
+                    # For other cases, keep the first value
+            
+            # Add metadata for tracking
+            merged_result["_metadata"] = {
+                "chunk_index": chunk_index,
+                "source_subdomains": field_sources,
+                "confidence": field_confidences
+            }
             
             merged_chunk_results.append(merged_result)
         
         # Step 6: Normalize temporal data
         self.console.print("[green]Normalizing temporal data...[/]")
+        if has_progress_manager and request_id:
+            add_progress_update(request_id, "processing", "Normalizing temporal data...", 80)
         normalized_results = []
         for result in merged_chunk_results:
             normalized_result = {}
+            
+            # Preserve metadata
+            if "_metadata" in result:
+                normalized_result["_metadata"] = result["_metadata"]
+            
+            # Normalize fields
             for field, value in result.items():
+                if field == "_metadata":
+                    continue
+                    
                 if field.endswith("_date") or field == "date":
                     # Normalize date fields
                     normalized_result[field] = self.temporal_normalizer.normalize_date(value)
@@ -257,26 +320,43 @@ class ParallelExtractionPipeline:
             
             normalized_results.append(normalized_result)
         
-        # Step 7: Merge and deduplicate results from all chunks
+        # Step 7: Merge and deduplicate results from all chunks with improved handling
         self.console.print("[green]Merging and deduplicating results...[/]")
+        if has_progress_manager and request_id:
+            add_progress_update(request_id, "processing", "Merging and deduplicating results...", 90)
         final_merged_result = self.result_merger.merge_results(normalized_results)
         
         # Step 8: Format output
         self.console.print("[green]Formatting output...[/]")
+        if has_progress_manager and request_id:
+            add_progress_update(request_id, "processing", "Formatting output...", 95)
         output = {}
         
         # Ensure output_formats is a list
         if output_formats is None:
             output_formats = ["json", "text"]
         
+        # Create a null filter to remove null, N/A, and empty values
+        null_filter = DudoxxNullFilter(
+            remove_null=True,
+            remove_na=True,
+            remove_empty_strings=True,
+            remove_zeros=False,
+            preserve_metadata=True
+        )
+        
+        # Apply null filter to the merged result
+        filtered_result = null_filter.filter_result(final_merged_result)
+        
+        # Format the filtered result
         if "json" in output_formats:
-            output["json_output"] = self.output_formatter.format_json(final_merged_result)
+            output["json_output"] = self.output_formatter.format_json(filtered_result)
         
         if "text" in output_formats:
-            output["text_output"] = self.output_formatter.format_text(final_merged_result)
+            output["text_output"] = self.output_formatter.format_text(filtered_result)
             
         if "xml" in output_formats:
-            output["xml_output"] = self.output_formatter.format_xml(final_merged_result)
+            output["xml_output"] = self.output_formatter.format_xml(filtered_result)
         
         # Add metadata
         processing_time = time.time() - start_time
@@ -429,12 +509,43 @@ class ParallelExtractionPipeline:
             
             chunk_results[chunk_index][sub_domain_name] = result["result"]
         
-        # Step 5: Merge results from sub-domains for each chunk
+        # Step 5: Merge results from sub-domains for each chunk with improved tracking
         merged_chunk_results = []
         for chunk_index, sub_domain_results in chunk_results.items():
             merged_result = {}
+            
+            # Track source sub-domains for each field
+            field_sources = {}
+            field_confidences = {}
+            
             for sub_domain_name, result in sub_domain_results.items():
-                merged_result.update(result)
+                for field_name, value in result.items():
+                    # Track field source
+                    if field_name not in field_sources:
+                        field_sources[field_name] = []
+                        field_confidences[field_name] = []
+                    
+                    field_sources[field_name].append(sub_domain_name)
+                    field_confidences[field_name].append(1.0)  # Default confidence
+                    
+                    # Update field value
+                    if field_name not in merged_result:
+                        # New field
+                        merged_result[field_name] = value
+                    elif merged_result[field_name] is None and value is not None:
+                        # Replace null value with non-null
+                        merged_result[field_name] = value
+                    elif isinstance(merged_result[field_name], list) and isinstance(value, list):
+                        # Merge lists
+                        merged_result[field_name].extend(value)
+                    # For other cases, keep the first value
+            
+            # Add metadata for tracking
+            merged_result["_metadata"] = {
+                "chunk_index": chunk_index,
+                "source_subdomains": field_sources,
+                "confidence": field_confidences
+            }
             
             merged_chunk_results.append(merged_result)
         
@@ -442,7 +553,16 @@ class ParallelExtractionPipeline:
         normalized_results = []
         for result in merged_chunk_results:
             normalized_result = {}
+            
+            # Preserve metadata
+            if "_metadata" in result:
+                normalized_result["_metadata"] = result["_metadata"]
+            
+            # Normalize fields
             for field, value in result.items():
+                if field == "_metadata":
+                    continue
+                    
                 if field.endswith("_date") or field == "date":
                     # Normalize date fields
                     normalized_result[field] = self.temporal_normalizer.normalize_date(value)
@@ -459,14 +579,28 @@ class ParallelExtractionPipeline:
         
         # Step 8: Format output
         output = {}
+        
+        # Create a null filter to remove null, N/A, and empty values
+        null_filter = DudoxxNullFilter(
+            remove_null=True,
+            remove_na=True,
+            remove_empty_strings=True,
+            remove_zeros=False,
+            preserve_metadata=True
+        )
+        
+        # Apply null filter to the merged result
+        filtered_result = null_filter.filter_result(final_merged_result)
+        
+        # Format the filtered result
         if "json" in output_formats:
-            output["json_output"] = self.output_formatter.format_json(final_merged_result)
+            output["json_output"] = self.output_formatter.format_json(filtered_result)
         
         if "text" in output_formats:
-            output["text_output"] = self.output_formatter.format_text(final_merged_result)
+            output["text_output"] = self.output_formatter.format_text(filtered_result)
             
         if "xml" in output_formats:
-            output["xml_output"] = self.output_formatter.format_xml(final_merged_result)
+            output["xml_output"] = self.output_formatter.format_xml(filtered_result)
         
         # Add metadata
         processing_time = time.time() - start_time
@@ -554,7 +688,8 @@ def extract_document_sync(
     domain_name: str,
     sub_domain_names: Optional[List[str]] = None,
     output_formats: Optional[List[str]] = None,
-    use_threads: bool = True
+    use_threads: bool = True,
+    request_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Extract information from a document using the parallel extraction pipeline (synchronous version).
@@ -577,7 +712,8 @@ def extract_document_sync(
             document_path=document_path,
             domain_name=domain_name,
             sub_domain_names=sub_domain_names,
-            output_formats=output_formats
+            output_formats=output_formats,
+            request_id=request_id
         )
     else:
         # Use asyncio-based parallelism

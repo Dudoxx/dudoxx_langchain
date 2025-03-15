@@ -131,12 +131,12 @@ def identify_domains_and_fields(text: str, query: str) -> Tuple[DomainIdentifica
     Returns:
         Tuple of (domain identification result, domain name, field names)
     """
-    console.print("[bold]Identifying domains and fields...[/]")
+    console.print(f"[bold]Identifying domains and fields for query: '{query}'...[/]")
     
     # Initialize domain identifier
     domain_identifier = DomainIdentifier()
     
-    # Get extraction schema
+    # Get extraction schema - this now uses the LLM to directly identify the most relevant domain and fields
     extraction_schema = domain_identifier.get_extraction_schema(query)
     
     # Get the primary domain (first domain in the schema)
@@ -187,26 +187,25 @@ def identify_domains_and_fields(text: str, query: str) -> Tuple[DomainIdentifica
     matched_domains = []
     matched_fields = []
     
-    # Get domain matches
-    for domain_name, subdomains in extraction_schema.items():
-        matched_domains.append(DomainMatch(
-            domain_name=domain_name,
-            confidence=0.9,  # Placeholder confidence
-            reason=f"Matched based on query: {query}"
-        ))
-        
-        # Get field matches
-        for subdomain_name, field_list in subdomains.items():
-            for field_name, confidence in field_list:
-                matched_fields.append(FieldMatch(
-                    domain_name=domain_name,
-                    sub_domain_name=subdomain_name,
-                    field_name=field_name,
-                    confidence=confidence,
-                    reason=f"Matched based on query: {query}"
-                ))
+    # Get domain matches - only include the primary domain for more focused extraction
+    matched_domains.append(DomainMatch(
+        domain_name=primary_domain,
+        confidence=1.0,  # High confidence since we're using LLM for direct identification
+        reason=f"Matched based on query: {query}"
+    ))
     
-    # Create domain identification result
+    # Get field matches - only include fields from the primary domain
+    for subdomain_name, field_list in extraction_schema[primary_domain].items():
+        for field_name, confidence in field_list:
+            matched_fields.append(FieldMatch(
+                domain_name=primary_domain,
+                sub_domain_name=subdomain_name,
+                field_name=field_name,
+                confidence=confidence,
+                reason=f"Matched based on query: {query}"
+            ))
+    
+    # Create domain identification result with focused recommendations
     domain_identification = DomainIdentificationResult(
         matched_domains=matched_domains,
         matched_fields=matched_fields,
@@ -217,7 +216,36 @@ def identify_domains_and_fields(text: str, query: str) -> Tuple[DomainIdentifica
     return domain_identification, primary_domain, fields
 
 
-def extract_from_text(text: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False) -> Dict[str, Any]:
+# Get progress manager for emitting progress updates
+try:
+    from dudoxx_extraction_api.progress_manager import add_progress_update
+    has_progress_manager = True
+except (ImportError, Exception) as e:
+    console.print(f"[yellow]Warning: Progress manager not available: {e}[/]")
+    has_progress_manager = False
+    
+    # Define a dummy add_progress_update function if the real one is not available
+    def add_progress_update(request_id, status, message, percentage=None):
+        console.print(f"[blue]Progress update (no manager):[/] {status} - {message}")
+
+
+def emit_progress(request_id, status, message, percentage=None):
+    """
+    Emit progress update using the progress manager.
+    
+    Args:
+        request_id: Request ID
+        status: Status of the progress update
+        message: Message for the progress update
+        percentage: Percentage of completion (0-100)
+    """
+    if has_progress_manager:
+        add_progress_update(request_id, status, message, percentage)
+    else:
+        console.print(f"[blue]Progress update:[/] {status} - {message} ({percentage}%)")
+
+
+def extract_from_text(text: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False, request_id: str = None) -> Dict[str, Any]:
     """
     Extract information from text based on query.
     
@@ -227,41 +255,36 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
         domain: Optional domain to use for extraction
         output_formats: Output formats to generate
         use_parallel: Whether to use parallel extraction
+        request_id: Request ID for progress updates
         
     Returns:
         Extraction result
     """
     console.print("[bold]Extracting information from text...[/]")
     
-    # Try to import socket manager for progress updates
-    try:
-        from dudoxx_extraction_api.socket_manager import emit_progress
-        has_socket = True
-    except (ImportError, Exception) as e:
-        console.print(f"[yellow]Warning: Socket.IO not available: {e}[/]")
-        has_socket = False
-        
-        # Define a dummy emit_progress function if the real one is not available
-        def emit_progress(status, message, percentage=None):
-            console.print(f"[blue]Progress update (no socket):[/] {status} - {message}")
-    
-    # Emit starting progress if socket is available
-    if has_socket:
-        emit_progress("starting", "Starting extraction process...")
+    # Emit starting progress
+    if request_id:
+        emit_progress(request_id, "starting", "Starting extraction process...")
     
     # Identify domains and fields if domain is not provided
     if not domain:
+        if request_id:
+            emit_progress(request_id, "processing", "Identifying domains and fields...", 20)
+        
         domain_identification, domain, fields = identify_domains_and_fields(text, query)
         
         # If no domain was identified, use "general" as a fallback
         if not domain:
             console.print("[yellow]No domain identified for query, using 'general' domain as fallback[/]")
-            if has_socket:
-                emit_progress("processing", "No domain identified, using 'general' domain as fallback", 20)
+            if request_id:
+                emit_progress(request_id, "processing", "No domain identified, using 'general' domain as fallback", 20)
             domain = "general"
             fields = ["content"]  # Generic field
     else:
         # Use domain identifier to get fields
+        if request_id:
+            emit_progress(request_id, "processing", f"Identifying fields for domain: {domain}...", 20)
+            
         domain_identifier = DomainIdentifier()
         extraction_schema = domain_identifier.get_extraction_schema(query)
         
@@ -275,8 +298,8 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
         # If no fields found, use a generic approach
         if not fields:
             console.print(f"[yellow]No fields identified for domain {domain}, using generic approach[/]")
-            if has_socket:
-                emit_progress("processing", f"No fields identified for domain {domain}, using generic approach", 30)
+            if request_id:
+                emit_progress(request_id, "processing", f"No fields identified for domain {domain}, using generic approach", 30)
             fields = ["content"]  # Generic field
     
     # Set default output formats if not provided
@@ -284,36 +307,92 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
         output_formats = ["json", "text"]
     
     # Emit progress update for domain identification
-    if has_socket:
-        emit_progress("processing", f"Using domain: {domain}", 40)
+    if request_id:
+        emit_progress(request_id, "processing", f"Using domain: {domain} with fields: {', '.join(fields)}", 40)
     
-    # Choose extraction method based on use_parallel flag
+    # Always use parallel extraction pipeline for consistency
     if use_parallel:
         console.print("[bold]Using parallel extraction pipeline...[/]")
-        if has_socket:
-            emit_progress("processing", "Using parallel extraction pipeline...", 50)
+        if request_id:
+            emit_progress(request_id, "processing", "Using parallel extraction pipeline...", 50)
         
         # Save text to temporary file for parallel extraction
         temp_file_path = save_temp_file(text)
         
         try:
             # Use parallel extraction pipeline
-            result = extract_document_sync(
-                document_path=temp_file_path,
-                domain_name=domain,
-                output_formats=output_formats
-            )
+            from dudoxx_extraction.domains.domain_registry import DomainRegistry
+            
+            # Get domain definition to get sub-domains
+            domain_registry = DomainRegistry()
+            domain_def = domain_registry.get_domain(domain)
+            
+            if domain_def:
+                # Get sub-domains based on fields
+                sub_domains = []
+                field_to_subdomain = {}
+                
+                for sub_domain in domain_def.sub_domains:
+                    sub_domain_fields = [field.name for field in sub_domain.fields]
+                    matching_fields = [field for field in fields if field in sub_domain_fields]
+                    
+                    if matching_fields:
+                        sub_domains.append(sub_domain.name)
+                        for field in matching_fields:
+                            field_to_subdomain[field] = sub_domain.name
+                
+                # Emit progress for each sub-domain
+                if request_id and sub_domains:
+                    for i, sub_domain in enumerate(sub_domains):
+                        progress = 50 + (i * 40 // len(sub_domains))
+                        emit_progress(
+                            request_id, 
+                            "processing", 
+                            f"Processing sub-domain: {sub_domain}...", 
+                            progress
+                        )
+                
+                # Use parallel extraction pipeline with specific sub-domains
+                result = extract_document_sync(
+                    document_path=temp_file_path,
+                    domain_name=domain,
+                    sub_domain_names=sub_domains,
+                    output_formats=output_formats,
+                    request_id=request_id
+                )
+            else:
+                # Domain not found, use default extraction
+                if request_id:
+                    emit_progress(request_id, "processing", f"Domain '{domain}' not found, using default extraction...", 50)
+                
+                result = extract_document_sync(
+                    document_path=temp_file_path,
+                    domain_name=domain,
+                    output_formats=output_formats,
+                    request_id=request_id
+                )
         finally:
             # Clean up temporary file
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
     else:
         console.print("[bold]Using standard extraction pipeline...[/]")
-        if has_socket:
-            emit_progress("processing", "Using standard extraction pipeline...", 50)
+        if request_id:
+            emit_progress(request_id, "processing", "Using standard extraction pipeline...", 50)
         
         # Initialize extraction client
         client = ExtractionClientSync()
+        
+        # Emit progress for each field
+        if request_id and fields:
+            for i, field in enumerate(fields):
+                progress = 50 + (i * 40 // len(fields))
+                emit_progress(
+                    request_id, 
+                    "processing", 
+                    f"Extracting field: {field}...", 
+                    progress
+                )
         
         # Extract information
         result = client.extract_text(
@@ -325,9 +404,9 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
     
     console.print(f"[green]Extraction completed successfully[/]")
     
-    # Emit completion progress if socket is available
-    if has_socket:
-        emit_progress("completed", "Extraction completed successfully", 100)
+    # Emit completion progress
+    if request_id:
+        emit_progress(request_id, "completed", "Extraction completed successfully", 100)
     
     return result
 
@@ -357,7 +436,7 @@ def save_temp_file(content: str) -> str:
         raise e
 
 
-def extract_from_file(file_path: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False) -> Dict[str, Any]:
+def extract_from_file(file_path: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False, request_id: str = None) -> Dict[str, Any]:
     """
     Extract information from file based on query.
     
@@ -367,86 +446,55 @@ def extract_from_file(file_path: str, query: str, domain: Optional[str] = None, 
         domain: Optional domain to use for extraction
         output_formats: Output formats to generate
         use_parallel: Whether to use parallel extraction
+        request_id: Request ID for progress updates
         
     Returns:
         Extraction result
     """
     console.print(f"[bold]Extracting information from file: {file_path}[/]")
     
-    # Try to import socket manager for progress updates
+    # Emit starting progress
+    if request_id:
+        emit_progress(request_id, "starting", f"Starting extraction from file: {os.path.basename(file_path)}")
+    
+    # Load document content
     try:
-        from dudoxx_extraction_api.socket_manager import emit_progress
-        has_socket = True
-    except (ImportError, Exception) as e:
-        console.print(f"[yellow]Warning: Socket.IO not available: {e}[/]")
-        has_socket = False
-        
-        # Define a dummy emit_progress function if the real one is not available
-        def emit_progress(status, message, percentage=None):
-            console.print(f"[blue]Progress update (no socket):[/] {status} - {message}")
-    
-    # Emit starting progress if socket is available
-    if has_socket:
-        emit_progress("starting", f"Starting extraction from file: {os.path.basename(file_path)}")
-    
-    # Check if file is supported by document loaders
-    if DocumentLoaderFactory.is_supported_file(file_path):
-        console.print(f"[green]File format supported by document loaders[/]")
-        if has_socket:
-            emit_progress("processing", "File format supported by document loaders", 20)
-        
-        if use_parallel:
-            console.print("[bold]Using parallel extraction pipeline...[/]")
-            if has_socket:
-                emit_progress("processing", "Using parallel extraction pipeline...", 30)
+        # Check if file is supported by document loaders
+        if DocumentLoaderFactory.is_supported_file(file_path):
+            console.print(f"[green]File format supported by document loaders[/]")
+            if request_id:
+                emit_progress(request_id, "processing", "File format supported by document loaders", 20)
             
-            # Use parallel extraction pipeline with document loader
-            result = extract_document_sync(
-                document_path=file_path,
-                domain_name=domain,
-                output_formats=output_formats
-            )
-            
-            # Emit completion progress if socket is available
-            if has_socket:
-                emit_progress("completed", "Extraction completed successfully", 100)
-            
-            return result
-        else:
             # Load document using document loader factory
-            if has_socket:
-                emit_progress("processing", "Loading document...", 30)
+            if request_id:
+                emit_progress(request_id, "processing", "Loading document...", 30)
             
             documents = DocumentLoaderFactory.load_document(file_path)
             
             # Combine document content
-            if has_socket:
-                emit_progress("processing", "Processing document content...", 40)
+            if request_id:
+                emit_progress(request_id, "processing", "Processing document content...", 40)
             
             text = "\n\n".join([doc.page_content for doc in documents])
+        else:
+            console.print(f"[yellow]File format not directly supported, falling back to basic text reading[/]")
+            if request_id:
+                emit_progress(request_id, "processing", "File format not directly supported, falling back to basic text reading", 20)
             
-            # Extract from text
-            return extract_from_text(text, query, domain, output_formats)
-    else:
-        console.print(f"[yellow]File format not directly supported, falling back to basic text reading[/]")
-        if has_socket:
-            emit_progress("processing", "File format not directly supported, falling back to basic text reading", 20)
-        
-        # Read file content
-        try:
-            if has_socket:
-                emit_progress("processing", "Reading file content...", 30)
+            # Read file content
+            if request_id:
+                emit_progress(request_id, "processing", "Reading file content...", 30)
             
             with open(file_path, 'r') as f:
                 text = f.read()
-        except UnicodeDecodeError:
-            console.print(f"[red]Error reading file as text, file may be binary[/]")
-            if has_socket:
-                emit_progress("error", "Error reading file as text, file may be binary", 100)
-            raise ValueError(f"File format not supported: {file_path}")
-        
-        # Extract from text
-        return extract_from_text(text, query, domain, output_formats, use_parallel)
+    except UnicodeDecodeError:
+        console.print(f"[red]Error reading file as text, file may be binary[/]")
+        if request_id:
+            emit_progress(request_id, "error", "Error reading file as text, file may be binary", 100)
+        raise ValueError(f"File format not supported: {file_path}")
+    
+    # Now that we have the text, use the same extraction flow as extract_from_text
+    return extract_from_text(text, query, domain, output_formats, use_parallel, request_id)
 
 
 def format_extraction_result(result: Dict[str, Any]) -> ExtractionResult:

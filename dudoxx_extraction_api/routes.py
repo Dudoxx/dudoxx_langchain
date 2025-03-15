@@ -167,7 +167,8 @@ async def extract_text(
             query=request.query,
             domain=domain,
             output_formats=request.output_formats,
-            use_parallel=use_parallel
+            use_parallel=use_parallel,
+            request_id=request_id
         )
         
         # Send completion progress update
@@ -269,7 +270,8 @@ async def extract_multi_query(
                 query=query,
                 domain=domain,
                 output_formats=request.output_formats,
-                use_parallel=use_parallel
+                use_parallel=use_parallel,
+                request_id=request_id
             )
             
             # Store results
@@ -507,7 +509,8 @@ async def extract_file(
             query=query,
             domain=identified_domain,
             output_formats=output_formats_list,
-            use_parallel=use_parallel
+            use_parallel=use_parallel,
+            request_id=request_id
         )
         
         # Send completion progress update
@@ -619,7 +622,9 @@ async def extract_document(
         result = extract_document_sync(
             document_path=temp_file_path,
             domain_name=domain,
-            output_formats=output_formats_list
+            output_formats=output_formats_list,
+            use_threads=True,
+            request_id=request_id
         )
         
         # Send completion progress update
