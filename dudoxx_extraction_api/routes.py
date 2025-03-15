@@ -397,20 +397,54 @@ async def extract_file(
         
         # Read file content for domain identification
         add_progress_update(request_id, "processing", "Analyzing file content...", 20)
+        
+        # First, try to identify domain from the query regardless of file type
+        console.print(f"[bold blue]Identifying domain from query: {query}[/]")
+        add_progress_update(request_id, "processing", "Identifying domain from query...", 25)
+        
+        # Use the domain identifier with just the query
+        from dudoxx_extraction.domain_identifier import DomainIdentifier
+        domain_identifier = DomainIdentifier()
+        query_domain_identification = domain_identifier.identify_domains_for_query(query)
+        
+        # Get the primary domain from query analysis
+        query_identified_domain = None
+        if query_domain_identification and query_domain_identification.matched_domains:
+            # Sort by confidence and get the highest confidence domain
+            sorted_domains = sorted(
+                query_domain_identification.matched_domains, 
+                key=lambda x: x.confidence, 
+                reverse=True
+            )
+            if sorted_domains:
+                query_identified_domain = sorted_domains[0].domain_name
+                console.print(f"[green]Domain identified from query: {query_identified_domain}[/]")
+        
+        # Now try to read the file content
         try:
             with open(temp_file_path, "r") as f:
                 text = f.read()
                 
-            # Identify domains and fields
-            add_progress_update(request_id, "processing", "Identifying domains and fields...", 30)
+            # Identify domains and fields from text content
+            add_progress_update(request_id, "processing", "Identifying domains and fields from content...", 30)
             domain_identification, identified_domain, fields = identify_domains_and_fields(text, query)
+            
+            console.print(f"[green]Domain identified from content: {identified_domain}[/]")
         except UnicodeDecodeError:
-            # If file can't be read as text, use document loaders
+            # If file can't be read as text, use document loaders and the domain from query
             add_progress_update(request_id, "processing", "File is binary, using document loaders...", 30)
-            domain_identification = None
-            # Use domain from request or default to "general"
-            identified_domain = domain if domain else "general"
-            console.print(f"[yellow]Binary file detected. Using domain: {identified_domain}[/]")
+            
+            # Use domain from query identification if available
+            if query_identified_domain:
+                identified_domain = query_identified_domain
+                domain_identification = query_domain_identification
+                console.print(f"[yellow]Binary file detected. Using domain from query: {identified_domain}[/]")
+            else:
+                # Use domain from request or default to "general"
+                identified_domain = domain if domain else "general"
+                domain_identification = None
+                console.print(f"[yellow]Binary file detected. Using domain: {identified_domain}[/]")
+            
             fields = []
         
         # Use domain from request if provided
