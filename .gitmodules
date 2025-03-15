@@ -1,3 +1,3 @@
 [submodule "dudoxx_extraction_nextjs"]
 	path = dudoxx_extraction_nextjs
-	url = ./dudoxx_extraction_nextjs
+	url = git@github.com:Dudoxx/dudoxx-extraction-nextjs.git
