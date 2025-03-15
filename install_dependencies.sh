@@ -10,10 +10,17 @@ conda activate dudoxx-langchain
 
 # Install required packages
 echo "Installing required packages..."
-pip install -r dudoxx_extraction_api/requirements.txt
+pip install -r requirements.txt
 
 # Install SSE dependency
 echo "Installing SSE dependency..."
-pip install sse-starlette>=1.6.5
+pip install sse-starlette
+
+# Install PDF processing dependencies
+echo "Installing PDF processing dependencies..."
+pip install pypdf pypdfium2
+
+# Make the script executable
+chmod +x install_dependencies.sh
 
 echo "Dependencies installed successfully!"

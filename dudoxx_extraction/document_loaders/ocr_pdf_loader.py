@@ -6,8 +6,12 @@ with OCR (Optical Character Recognition) capabilities.
 """
 
 from typing import List, Optional, Union, Sequence, Dict, Any
-from langchain_community.document_loaders import PyPDFium2Loader, UnstructuredPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, PyPDFium2Loader
 from langchain_core.documents import Document
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class OcrPdfLoader:
@@ -26,7 +30,7 @@ class OcrPdfLoader:
     def __init__(
         self,
         file_path: str,
-        use_ocr: bool = True,
+        use_ocr: bool = False,  # Default to False since OCR is not working properly
         ocr_languages: str = "eng",
         ocr_config: Optional[Dict[str, Any]] = None,
     ):
@@ -42,17 +46,13 @@ class OcrPdfLoader:
         self.file_path = file_path
         self.use_ocr = use_ocr
         
-        if use_ocr:
-            # Use UnstructuredPDFLoader with OCR enabled
-            self.loader = UnstructuredPDFLoader(
-                file_path=file_path,
-                mode="elements",
-                strategy="ocr_only" if use_ocr else "fast",
-                languages=ocr_languages,
-                **(ocr_config or {})
-            )
-        else:
-            # Use PyPDFium2Loader for non-OCR PDF loading
+        try:
+            # Use PyPDFLoader as the primary loader
+            self.loader = PyPDFLoader(file_path=file_path)
+            logger.info(f"Using PyPDFLoader for {file_path}")
+        except Exception as e:
+            logger.warning(f"PyPDFLoader failed: {e}. Falling back to PyPDFium2Loader.")
+            # Fallback to PyPDFium2Loader
             self.loader = PyPDFium2Loader(file_path=file_path)
 
     def load(self) -> List[Document]:
