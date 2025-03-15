@@ -409,16 +409,54 @@ async def extract_file(
         
         # Get the primary domain from query analysis
         query_identified_domain = None
-        if query_domain_identification and query_domain_identification.matched_domains:
-            # Sort by confidence and get the highest confidence domain
-            sorted_domains = sorted(
-                query_domain_identification.matched_domains, 
-                key=lambda x: x.confidence, 
-                reverse=True
+        
+        # Convert the domain_identifier.py DomainIdentificationResult to models.py DomainIdentificationResult
+        api_domain_identification = None
+        if query_domain_identification:
+            # Create a new DomainIdentificationResult using the API model
+            from dudoxx_extraction_api.models import DomainIdentificationResult as ApiDomainIdentificationResult
+            from dudoxx_extraction_api.models import DomainMatch as ApiDomainMatch
+            from dudoxx_extraction_api.models import FieldMatch as ApiFieldMatch
+            
+            # Convert matched domains
+            api_matched_domains = []
+            for domain_match in query_domain_identification.matched_domains:
+                api_matched_domains.append(ApiDomainMatch(
+                    domain_name=domain_match.domain_name,
+                    confidence=domain_match.confidence,
+                    reason=domain_match.reason
+                ))
+            
+            # Convert matched fields
+            api_matched_fields = []
+            for field_match in query_domain_identification.matched_fields:
+                api_matched_fields.append(ApiFieldMatch(
+                    domain_name=field_match.domain_name,
+                    sub_domain_name=field_match.sub_domain_name,
+                    field_name=field_match.field_name,
+                    confidence=field_match.confidence,
+                    reason=field_match.reason
+                ))
+            
+            # Create API domain identification result
+            api_domain_identification = ApiDomainIdentificationResult(
+                matched_domains=api_matched_domains,
+                matched_fields=api_matched_fields,
+                recommended_domains=query_domain_identification.recommended_domains,
+                recommended_fields=query_domain_identification.recommended_fields
             )
-            if sorted_domains:
-                query_identified_domain = sorted_domains[0].domain_name
-                console.print(f"[green]Domain identified from query: {query_identified_domain}[/]")
+            
+            # Get the primary domain
+            if api_matched_domains:
+                # Sort by confidence and get the highest confidence domain
+                sorted_domains = sorted(
+                    api_matched_domains, 
+                    key=lambda x: x.confidence, 
+                    reverse=True
+                )
+                if sorted_domains:
+                    query_identified_domain = sorted_domains[0].domain_name
+                    console.print(f"[green]Domain identified from query: {query_identified_domain}[/]")
         
         # Now try to read the file content
         try:
@@ -437,7 +475,7 @@ async def extract_file(
             # Use domain from query identification if available
             if query_identified_domain:
                 identified_domain = query_identified_domain
-                domain_identification = query_domain_identification
+                domain_identification = api_domain_identification
                 console.print(f"[yellow]Binary file detected. Using domain from query: {identified_domain}[/]")
             else:
                 # Use domain from request or default to "general"
