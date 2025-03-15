@@ -625,6 +625,29 @@ class ParallelExtractionPipeline:
         Returns:
             Prompt for LLM
         """
+        # Use the PromptBuilder to generate a more comprehensive prompt
+        try:
+            from dudoxx_extraction.prompt_builder import PromptBuilder
+            
+            # Find the domain that contains this sub-domain
+            domain_name = None
+            for domain in self.domain_registry.get_all_domains():
+                if domain.get_sub_domain(sub_domain.name):
+                    domain_name = domain.name
+                    break
+            
+            if domain_name:
+                prompt_builder = PromptBuilder(self.domain_registry)
+                return prompt_builder.build_extraction_prompt(
+                    text=text,
+                    domain_name=domain_name,
+                    sub_domain_names=[sub_domain.name]
+                )
+        except (ValueError, ImportError) as e:
+            # Fall back to the simple prompt generation if PromptBuilder fails
+            self.console.print(f"[yellow]Warning: PromptBuilder failed, falling back to simple prompt: {e}[/]")
+        
+        # Fallback to original method if PromptBuilder fails
         # Get prompt text from sub-domain
         prompt_text = sub_domain.to_prompt_text()
         

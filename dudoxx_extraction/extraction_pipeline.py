@@ -806,25 +806,40 @@ class ExtractionPipeline:
         Returns:
             Prompt for LLM
         """
-        field_descriptions = {
-            "patient_name": "Full name of the patient",
-            "date_of_birth": "Patient's date of birth",
-            "diagnoses": "List of diagnoses",
-            "medications": "List of medications",
-            "visits": "List of medical visits with dates and descriptions",
-            "parties": "Parties involved in the contract",
-            "effective_date": "Date when the contract becomes effective",
-            "termination_date": "Date when the contract terminates",
-            "obligations": "List of obligations for each party",
-            "events": "List of events with dates and descriptions"
-            # Add more field descriptions as needed
-        }
+        # Use the PromptBuilder to generate a more comprehensive prompt
+        from dudoxx_extraction.prompt_builder import PromptBuilder
         
-        # Create field list for prompt
-        field_list = "\n".join([f"- {field}: {field_descriptions.get(field, '')}" for field in fields])
-        
-        # Create prompt
-        prompt = f"""Extract the following information from the {domain} document:
+        try:
+            prompt_builder = PromptBuilder()
+            return prompt_builder.build_extraction_prompt(
+                text=text,
+                domain_name=domain,
+                field_names=fields
+            )
+        except (ValueError, ImportError) as e:
+            # Fall back to the simple prompt generation if PromptBuilder fails
+            self.console.print(f"[yellow]Warning: PromptBuilder failed, falling back to simple prompt: {e}[/]")
+            
+            # Simple fallback prompt generation
+            field_descriptions = {
+                "patient_name": "Full name of the patient",
+                "date_of_birth": "Patient's date of birth",
+                "diagnoses": "List of diagnoses",
+                "medications": "List of medications",
+                "visits": "List of medical visits with dates and descriptions",
+                "parties": "Parties involved in the contract",
+                "effective_date": "Date when the contract becomes effective",
+                "termination_date": "Date when the contract terminates",
+                "obligations": "List of obligations for each party",
+                "events": "List of events with dates and descriptions"
+                # Add more field descriptions as needed
+            }
+            
+            # Create field list for prompt
+            field_list = "\n".join([f"- {field}: {field_descriptions.get(field, '')}" for field in fields])
+            
+            # Create prompt
+            prompt = f"""Extract the following information from the {domain} document:
 
 {field_list}
 
@@ -835,7 +850,7 @@ If a field can have multiple values, return them as a list.
 Text:
 {text}
 """
-        return prompt
+            return prompt
     
     def _estimate_token_count(self, chunks: List[Any]) -> int:
         """

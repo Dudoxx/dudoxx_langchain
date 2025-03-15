@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extractor AI by Dudoxx - Pricing</title>
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Pricing page specific styles */
+        .pricing-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .pricing-card {
+            flex: 1;
+            background-color: var(--white);
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .pricing-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+        
+        .pricing-card.popular {
+            border: 2px solid var(--dark-orange);
+        }
+        
+        .popular-tag {
+            position: absolute;
+            top: 15px;
+            right: -30px;
+            background-color: var(--dark-orange);
+            color: var(--white);
+            padding: 5px 40px;
+            font-size: 12px;
+            font-weight: 600;
+            transform: rotate(45deg);
+        }
+        
+        .pricing-header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--light-grey);
+            margin-bottom: 20px;
+        }
+        
+        .pricing-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--dark-blue);
+            margin-bottom: 10px;
+        }
+        
+        .pricing-subtitle {
+            font-size: 14px;
+            color: var(--grey);
+            margin-bottom: 15px;
+        }
+        
+        .pricing-price {
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--dark-blue);
+            margin-bottom: 5px;
+        }
+        
+        .pricing-period {
+            font-size: 14px;
+            color: var(--grey);
+        }
+        
+        .pricing-features {
+            list-style: none;
+            margin: 0 0 30px 0;
+            padding: 0;
+            flex: 1;
+        }
+        
+        .pricing-features li {
+            padding: 8px 0;
+            font-size: 14px;
+            color: var(--grey);
+            display: flex;
+            align-items: center;
+        }
+        
+        .pricing-features li i {
+            color: var(--dark-orange);
+            margin-right: 10px;
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .pricing-features li.not-included {
+            color: var(--light-grey);
+        }
+        
+        .pricing-features li.not-included i {
+            color: var(--light-grey);
+        }
+        
+        .pricing-cta {
+            text-align: center;
+            margin-top: auto;
+        }
+        
+        .pricing-button {
+            background-color: var(--blue);
+            color: var(--white);
+            border: none;
+            padding: 12px 25px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .pricing-button:hover {
+            background-color: var(--dark-blue);
+        }
+        
+        .pricing-button.primary {
+            background-color: var(--dark-orange);
+        }
+        
+        .pricing-button.primary:hover {
+            background-color: #E64A19;
+        }
+        
+        .pricing-note {
+            text-align: center;
+            font-size: 14px;
+            color: var(--grey);
+            margin-top: 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="a4-page">
+        <div class="page-header">
+            <h1 class="page-title-large">Pricing Plans</h1>
+            <p class="page-subtitle">Flexible Options for Organizations of All Sizes</p>
+        </div>
+        
+        <div class="section">
+            <p>
+                Extractor AI offers transparent, predictable pricing with plans designed to fit the needs of organizations at every stage of growth. All plans include our core document extraction capabilities with domain-specific intelligence.
+            </p>
+            
+            <div class="pricing-container">
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3 class="pricing-title">Starter</h3>
+                        <p class="pricing-subtitle">For small teams and projects</p>
+                        <div class="pricing-price">$499</div>
+                        <div class="pricing-period">per month</div>
+                    </div>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Up to 1,000 pages/month</li>
+                        <li><i class="fas fa-check"></i> Essential domains (General, Legal)</li>
+                        <li><i class="fas fa-check"></i> Multi-format support</li>
+                        <li><i class="fas fa-check"></i> Real-time progress tracking</li>
+                        <li><i class="fas fa-check"></i> JSON and CSV outputs</li>
+                        <li><i class="fas fa-check"></i> Email support</li>
+                        <li class="not-included"><i class="fas fa-times"></i> Advanced domains</li>
+                        <li class="not-included"><i class="fas fa-times"></i> API access</li>
+                        <li class="not-included"><i class="fas fa-times"></i> Custom integrations</li>
+                    </ul>
+                    
+                    <div class="pricing-cta">
+                        <a href="contact.html" class="pricing-button">Get Started</a>
+                    </div>
+                </div>
+                
+                <div class="pricing-card popular">
+                    <div class="popular-tag">Most Popular</div>
+                    <div class="pricing-header">
+                        <h3 class="pricing-title">Professional</h3>
+                        <p class="pricing-subtitle">For growing organizations</p>
+                        <div class="pricing-price">$1,499</div>
+                        <div class="pricing-period">per month</div>
+                    </div>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Up to 10,000 pages/month</li>
+                        <li><i class="fas fa-check"></i> All domains (incl. Medical, Financial)</li>
+                        <li><i class="fas fa-check"></i> Multi-format support</li>
+                        <li><i class="fas fa-check"></i> Real-time progress tracking</li>
+                        <li><i class="fas fa-check"></i> All output formats</li>
+                        <li><i class="fas fa-check"></i> Priority support</li>
+                        <li><i class="fas fa-check"></i> API access</li>
+                        <li><i class="fas fa-check"></i> Basic integrations</li>
+                        <li class="not-included"><i class="fas fa-times"></i> Custom domains</li>
+                    </ul>
+                    
+                    <div class="pricing-cta">
+                        <a href="contact.html" class="pricing-button primary">Get Started</a>
+                    </div>
+                </div>
+                
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3 class="pricing-title">Enterprise</h3>
+                        <p class="pricing-subtitle">For large organizations</p>
+                        <div class="pricing-price">Custom</div>
+                        <div class="pricing-period">tailored pricing</div>
+                    </div>
+                    
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> Unlimited usage</li>
+                        <li><i class="fas fa-check"></i> All domains + custom domains</li>
+                        <li><i class="fas fa-check"></i> Multi-format support</li>
+                        <li><i class="fas fa-check"></i> Advanced analytics</li>
+                        <li><i class="fas fa-check"></i> All output formats</li>
+                        <li><i class="fas fa-check"></i> Dedicated support</li>
+                        <li><i class="fas fa-check"></i> Advanced API access</li>
+                        <li><i class="fas fa-check"></i> Custom integrations</li>
+                        <li><i class="fas fa-check"></i> On-premises deployment option</li>
+                    </ul>
+                    
+                    <div class="pricing-cta">
+                        <a href="contact.html" class="pricing-button">Contact Sales</a>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="pricing-note">
+                All plans include our core document extraction capabilities with domain-specific intelligence. Annual billing discounts available.
+            </p>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title"><i class="fas fa-question-circle"></i> Frequently Asked Questions</h2>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3 class="feature-title">What counts as a page?</h3>
+                    <p class="feature-description">
+                        A page is defined as a standard 8.5" x 11" or A4 page or equivalent. For non-standard documents, we count approximately 3,000 characters as one page.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3 class="feature-title">Can I change plans?</h3>
+                    <p class="feature-description">
+                        Yes, you can upgrade or downgrade your plan at any time. Upgrades take effect immediately, while downgrades take effect at the end of your billing cycle.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3 class="feature-title">Is there a free trial?</h3>
+                    <p class="feature-description">
+                        Yes, we offer a 14-day free trial with up to 100 pages of processing. No credit card required to start your trial.
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <h3 class="feature-title">What payment methods do you accept?</h3>
+                    <p class="feature-description">
+                        We accept all major credit cards, ACH transfers, and wire transfers for Enterprise plans.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cta-box">
+            <h3 class="cta-title">Ready to Transform Your Document Processing?</h3>
+            <p class="cta-description">Start your free trial today and experience the power of domain-specific document extraction.</p>
+            <a href="contact.html" class="cta-button">Start Free Trial</a>
+        </div>
+        
+        <div class="footer">
+            <p>© 2025 DUDOXX UG. All rights reserved. | Hamburg, Germany</p>
+        </div>
+    </div>
+</body>
+</html>

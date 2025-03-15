@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extractor AI by Dudoxx - Interactive Brochure</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="images/extractor_ai_logo_natural.png" alt="Extractor AI Logo" class="sidebar-logo">
+                <h1 class="sidebar-title">Extractor AI</h1>
+                <p class="sidebar-subtitle">by Dudoxx</p>
+            </div>
+            
+            <ul class="nav-menu">
+                <li class="nav-item active">
+                    <a href="#" class="nav-link" data-page="pages/cover.html">
+                        <i class="fas fa-home"></i> Cover
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/introduction.html">
+                        <i class="fas fa-info-circle"></i> Introduction
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/key-features.html">
+                        <i class="fas fa-star"></i> Key Features
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/domain-intelligence.html">
+                        <i class="fas fa-brain"></i> Domain Intelligence
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/multi-format.html">
+                        <i class="fas fa-file-alt"></i> Multi-Format Support
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/parallel-processing.html">
+                        <i class="fas fa-network-wired"></i> Parallel Processing
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/real-time-progress.html">
+                        <i class="fas fa-tasks"></i> Real-Time Progress
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/structured-outputs.html">
+                        <i class="fas fa-table"></i> Structured Outputs
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/use-cases.html">
+                        <i class="fas fa-briefcase"></i> Use Cases
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/testimonials.html">
+                        <i class="fas fa-quote-right"></i> Testimonials
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/pricing.html">
+                        <i class="fas fa-tag"></i> Pricing
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="pages/contact.html">
+                        <i class="fas fa-envelope"></i> Contact
+                    </a>
+                </li>
+            </ul>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="header">
+                <h2 class="page-title" id="current-page-title">Cover</h2>
+                <div class="navigation-controls">
+                    <button class="nav-button prev-button" id="prev-page">
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>
+                    <button class="nav-button next-button" id="next-page">
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="nav-button print-button" id="print-brochure">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </div>
+            </header>
+            
+            <div class="page-container">
+                <iframe src="pages/cover.html" class="page-frame" id="page-frame" scrolling="yes"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get elements
+            const navLinks = document.querySelectorAll('.nav-link');
+            const pageFrame = document.getElementById('page-frame');
+            const pageTitle = document.getElementById('current-page-title');
+            const prevButton = document.getElementById('prev-page');
+            const nextButton = document.getElementById('next-page');
+            const printButton = document.getElementById('print-brochure');
+            
+            // Current page index
+            let currentPageIndex = 0;
+            
+            // Function to update active page
+            function updateActivePage(index) {
+                // Remove active class from all nav items
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                // Add active class to current nav item
+                document.querySelectorAll('.nav-item')[index].classList.add('active');
+                
+                // Update iframe source
+                const pageUrl = navLinks[index].getAttribute('data-page');
+                pageFrame.src = pageUrl;
+                
+                // Update page title
+                pageTitle.textContent = navLinks[index].textContent.trim();
+                
+                // Update current page index
+                currentPageIndex = index;
+                
+                // Update button states
+                prevButton.disabled = currentPageIndex === 0;
+                nextButton.disabled = currentPageIndex === navLinks.length - 1;
+            }
+            
+            // Add click event listeners to nav links
+            navLinks.forEach((link, index) => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    updateActivePage(index);
+                });
+            });
+            
+            // Previous button click
+            prevButton.addEventListener('click', function() {
+                if (currentPageIndex > 0) {
+                    updateActivePage(currentPageIndex - 1);
+                }
+            });
+            
+            // Next button click
+            nextButton.addEventListener('click', function() {
+                if (currentPageIndex < navLinks.length - 1) {
+                    updateActivePage(currentPageIndex + 1);
+                }
+            });
+            
+            // Print button click
+            printButton.addEventListener('click', function() {
+                window.print();
+            });
+            
+            // Initialize with first page
+            updateActivePage(0);
+        });
+    </script>
+</body>
+</html>

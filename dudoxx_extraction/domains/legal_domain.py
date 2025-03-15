@@ -5,75 +5,130 @@ This module provides domain definitions for legal documents, broken down
 into smaller sub-domains for more focused extraction.
 """
 
-from dudoxx_extraction.domains.domain_definition import DomainDefinition, SubDomainDefinition, FieldDefinition
+from dudoxx_extraction.domains.domain_definition import DomainDefinition, SubDomainDefinition, FieldDefinition, ValidationLevel
 from dudoxx_extraction.domains.domain_registry import DomainRegistry
 
-
-# Agreement Information Sub-Domain
-agreement_info_subdomain = SubDomainDefinition(
-    name="agreement_info",
-    description="agreement information",
-    fields=[
-        FieldDefinition(
-            name="title",
-            description="Title of the agreement",
-            type="string",
-            is_required=True,
-            is_unique=True,
-            examples=["Consulting Services Agreement", "Employment Agreement"]
-        ),
-        FieldDefinition(
-            name="effective_date",
-            description="Date when the agreement becomes effective",
-            type="date",
-            is_required=True,
-            is_unique=True,
-            examples=["January 15, 2023", "2023-01-15", "01/15/2023"]
-        ),
-        FieldDefinition(
-            name="termination_date",
-            description="Date when the agreement terminates",
-            type="date",
-            is_required=False,
-            is_unique=True,
-            examples=["January 14, 2024", "2024-01-14", "01/14/2024"]
-        ),
-        FieldDefinition(
-            name="governing_law",
-            description="Governing law for the agreement",
-            type="string",
-            is_required=False,
-            is_unique=True,
-            examples=["California law", "Laws of the State of New York"]
-        )
-    ]
-)
 
 # Parties Sub-Domain
 parties_subdomain = SubDomainDefinition(
     name="parties",
-    description="parties involved in the agreement",
+    description="parties involved in the legal document",
+    extraction_instructions="Look for parties typically at the beginning of legal documents, often in a section labeled 'Parties', 'Between', or in the introductory paragraph.",
+    priority=10,
     fields=[
         FieldDefinition(
             name="parties",
-            description="List of parties involved in the agreement with their details",
+            description="List of parties involved in the legal document",
             type="list",
             is_required=True,
-            is_unique=False,
+            is_unique=True,
             examples=[
-                {
-                    "name": "ABC Corporation",
-                    "type": "Delaware corporation",
-                    "location": "123 Corporate Drive, Business City, CA 94123",
-                    "role": "Client"
-                },
-                {
-                    "name": "XYZ Consulting LLC",
-                    "type": "California limited liability company",
-                    "location": "456 Consultant Avenue, Expertise City, CA 95678",
-                    "role": "Consultant"
-                }
-            ]
+                {"name": "Acme Corporation", "type": "Company", "role": "Seller"},
+                {"name": "John Smith", "type": "Individual", "role": "Buyer"}
+            ],
+            extraction_instructions="Extract the full name of each party, their type (individual, company, etc.), and their role in the agreement (buyer, seller, lessor, lessee, etc.).",
+            formatting_instructions="Format company names with proper capitalization. For individuals, use full legal names.",
+            keywords=["party", "parties", "between", "agreement", "contract", "hereinafter", "referred to as"],
+            extraction_priority=10,
+            format_function="capitalize_names"
+        )
+    ]
+)
+
+# Contract Dates Sub-Domain
+contract_dates_subdomain = SubDomainDefinition(
+    name="contract_dates",
+    description="important dates in the contract",
+    extraction_instructions="Look for dates throughout the document, particularly in sections about term, effective date, or termination.",
+    priority=9,
+    fields=[
+        FieldDefinition(
+            name="effective_date",
+            description="Date when the contract becomes effective",
+            type="date",
+            is_required=True,
+            is_unique=True,
+            examples=["January 1, 2023", "01/01/2023", "2023-01-01"],
+            extraction_instructions="Look for phrases like 'effective date', 'commencement date', or 'this agreement is made on'.",
+            formatting_instructions="Format as YYYY-MM-DD.",
+            format_pattern=r"^\d{4}-\d{2}-\d{2}$",
+            format_function="format_date_iso",
+            keywords=["effective", "commencement", "begins", "start date", "as of", "made on"],
+            extraction_priority=9,
+            validation_function="validate_date"
+        ),
+        FieldDefinition(
+            name="termination_date",
+            description="Date when the contract terminates",
+            type="date",
+            is_required=False,
+            is_unique=True,
+            examples=["December 31, 2025", "12/31/2025", "2025-12-31"],
+            extraction_instructions="Look for phrases like 'termination date', 'expiration date', or 'end date'.",
+            formatting_instructions="Format as YYYY-MM-DD.",
+            format_pattern=r"^\d{4}-\d{2}-\d{2}$",
+            format_function="format_date_iso",
+            keywords=["termination", "expiration", "expires", "end date", "concludes", "until"],
+            extraction_priority=8,
+            validation_function="validate_date"
+        ),
+        FieldDefinition(
+            name="execution_date",
+            description="Date when the contract was executed or signed",
+            type="date",
+            is_required=False,
+            is_unique=True,
+            examples=["December 15, 2022", "12/15/2022", "2022-12-15"],
+            extraction_instructions="Look for dates near signatures or in the signature block.",
+            formatting_instructions="Format as YYYY-MM-DD.",
+            format_pattern=r"^\d{4}-\d{2}-\d{2}$",
+            format_function="format_date_iso",
+            keywords=["executed", "signed", "signature", "dated", "in witness whereof"],
+            extraction_priority=7,
+            validation_function="validate_date"
+        )
+    ]
+)
+
+# Contract Terms Sub-Domain
+contract_terms_subdomain = SubDomainDefinition(
+    name="contract_terms",
+    description="key terms and conditions of the contract",
+    extraction_instructions="Look for terms and conditions throughout the document, particularly in numbered or lettered sections.",
+    priority=8,
+    fields=[
+        FieldDefinition(
+            name="term_length",
+            description="Length of the contract term",
+            type="string",
+            is_required=False,
+            is_unique=True,
+            examples=["3 years", "36 months", "1 year with automatic renewal"],
+            extraction_instructions="Look for phrases describing the duration of the agreement.",
+            keywords=["term", "duration", "period", "length", "years", "months"],
+            extraction_priority=6
+        ),
+        FieldDefinition(
+            name="payment_terms",
+            description="Terms related to payment",
+            type="string",
+            is_required=False,
+            is_unique=True,
+            examples=["$5,000 per month, due on the 1st of each month", "Annual fee of $60,000 payable in quarterly installments"],
+            extraction_instructions="Look for sections about payment, fees, compensation, or consideration.",
+            keywords=["payment", "fee", "compensation", "consideration", "price", "cost", "amount", "pay", "paid"],
+            extraction_priority=5
+        ),
+        FieldDefinition(
+            name="termination_conditions",
+            description="Conditions under which the contract may be terminated",
+            type="list",
+            is_required=False,
+            is_unique=False,
+            examples=["30 days written notice", "Material breach with 10 days to cure", "Immediately upon bankruptcy"],
+            extraction_instructions="Look for sections about termination, cancellation, or ending the agreement.",
+            keywords=["terminate", "termination", "cancel", "cancellation", "end", "breach", "default"],
+            extraction_priority=4
         )
     ]
 )
@@ -82,6 +137,8 @@ parties_subdomain = SubDomainDefinition(
 obligations_subdomain = SubDomainDefinition(
     name="obligations",
     description="obligations of the parties",
+    extraction_instructions="Look for sections describing what each party must do or provide under the agreement.",
+    priority=7,
     fields=[
         FieldDefinition(
             name="obligations",
@@ -90,87 +147,44 @@ obligations_subdomain = SubDomainDefinition(
             is_required=False,
             is_unique=False,
             examples=[
-                {
-                    "party": "Consultant",
-                    "description": "Perform the Services in accordance with the highest professional standards",
-                    "deadline": "Throughout the Term"
-                },
-                {
-                    "party": "Client",
-                    "description": "Pay Consultant the fees set forth in Exhibit B",
-                    "deadline": "Within thirty (30) days after receipt of each invoice"
-                }
-            ]
+                {"party": "Seller", "obligation": "Deliver goods within 30 days of order"},
+                {"party": "Buyer", "obligation": "Pay invoice within 15 days of receipt"}
+            ],
+            extraction_instructions="Extract which party has the obligation and what they are obligated to do.",
+            keywords=["shall", "must", "will", "agrees to", "responsible for", "obligation", "duty", "required to"],
+            extraction_priority=3
         )
     ]
 )
 
-# Payment Terms Sub-Domain
-payment_terms_subdomain = SubDomainDefinition(
-    name="payment_terms",
-    description="payment terms",
+# Governing Law Sub-Domain
+governing_law_subdomain = SubDomainDefinition(
+    name="governing_law",
+    description="governing law and jurisdiction",
+    extraction_instructions="Look for sections about governing law, jurisdiction, or dispute resolution, typically near the end of the document.",
+    priority=6,
     fields=[
         FieldDefinition(
-            name="payment_terms",
-            description="Payment terms of the agreement",
-            type="object",
+            name="governing_law",
+            description="Law governing the contract",
+            type="string",
             is_required=False,
             is_unique=True,
-            examples=[
-                {
-                    "fee_structure": "Monthly fee of $10,000",
-                    "payment_schedule": "Within thirty (30) days after receipt of each invoice",
-                    "late_payment_penalty": "Interest at the rate of 1.5% per month"
-                }
-            ]
-        )
-    ]
-)
-
-# Termination Provisions Sub-Domain
-termination_provisions_subdomain = SubDomainDefinition(
-    name="termination_provisions",
-    description="termination provisions",
-    fields=[
+            examples=["Laws of the State of California", "New York law", "Laws of England and Wales"],
+            extraction_instructions="Extract the jurisdiction whose laws govern the contract.",
+            keywords=["govern", "governing law", "jurisdiction", "construed", "interpreted", "accordance with the laws"],
+            extraction_priority=2
+        ),
         FieldDefinition(
-            name="termination_provisions",
-            description="Provisions for termination of the agreement",
-            type="list",
-            is_required=False,
-            is_unique=False,
-            examples=[
-                {
-                    "type": "Termination for Convenience",
-                    "description": "Either party may terminate this Agreement at any time without cause upon thirty (30) days' prior written notice to the other party."
-                },
-                {
-                    "type": "Termination for Cause",
-                    "description": "Either party may terminate this Agreement immediately upon written notice if the other party materially breaches this Agreement and fails to cure such breach within fifteen (15) days after receiving written notice thereof."
-                }
-            ]
-        )
-    ]
-)
-
-# Confidentiality Sub-Domain
-confidentiality_subdomain = SubDomainDefinition(
-    name="confidentiality",
-    description="confidentiality provisions",
-    fields=[
-        FieldDefinition(
-            name="confidentiality_provisions",
-            description="Provisions related to confidentiality",
-            type="object",
+            name="dispute_resolution",
+            description="Method of dispute resolution",
+            type="string",
             is_required=False,
             is_unique=True,
-            examples=[
-                {
-                    "definition": "All non-public information disclosed by one party to the other party",
-                    "obligations": "Recipient shall maintain the confidentiality of the Confidential Information and shall not disclose it to any third party",
-                    "exclusions": "Information that is or becomes publicly available through no fault of the Recipient",
-                    "term": "Three (3) years after the termination of this Agreement"
-                }
-            ]
+            examples=["Arbitration in Los Angeles, California", "Litigation in the courts of New York County"],
+            extraction_instructions="Extract the method (arbitration, litigation, mediation) and location for resolving disputes.",
+            keywords=["dispute", "arbitration", "mediation", "litigation", "court", "venue", "forum"],
+            extraction_priority=1
         )
     ]
 )
@@ -178,14 +192,17 @@ confidentiality_subdomain = SubDomainDefinition(
 # Create the Legal Domain
 legal_domain = DomainDefinition(
     name="legal",
-    description="Legal domain for agreements and contracts",
+    description="Legal domain for contracts and agreements",
+    extraction_instructions="This is a legal document. Pay special attention to parties, dates, terms, and obligations.",
+    keywords=["contract", "agreement", "legal", "parties", "terms", "conditions", "clause", "provision"],
+    confidence_threshold=0.7,
+    merge_function="merge_legal_results",
     sub_domains=[
-        agreement_info_subdomain,
         parties_subdomain,
+        contract_dates_subdomain,
+        contract_terms_subdomain,
         obligations_subdomain,
-        payment_terms_subdomain,
-        termination_provisions_subdomain,
-        confidentiality_subdomain
+        governing_law_subdomain
     ]
 )
 
