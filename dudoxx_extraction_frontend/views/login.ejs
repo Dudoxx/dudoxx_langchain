@@ -1,0 +1,39 @@
+<% active = 'login' %>
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow">
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">Login with API Key</h4>
+      </div>
+      <div class="card-body">
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="alert alert-danger" role="alert">
+            <%= error %>
+          </div>
+        <% } %>
+        
+        <% if (typeof success !== 'undefined' && success) { %>
+          <div class="alert alert-success" role="alert">
+            <%= success %>
+          </div>
+        <% } %>
+        
+        <form action="/login" method="POST">
+          <div class="mb-3">
+            <label for="apiKey" class="form-label">API Key</label>
+            <input type="password" class="form-control" id="apiKey" name="apiKey" required>
+            <div class="form-text">Enter your Dudoxx Extraction API key to access the system.</div>
+          </div>
+          
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary">Login</button>
+          </div>
+        </form>
+      </div>
+      <div class="card-footer text-muted">
+        <p class="mb-0">Don't have an API key? Contact your administrator.</p>
+      </div>
+    </div>
+  </div>
+</div>

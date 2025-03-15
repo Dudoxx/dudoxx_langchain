@@ -1,0 +1,82 @@
+<% active = 'dashboard' %>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow mb-4">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Dudoxx Extraction Dashboard</h4>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-success">
+          <h5 class="alert-heading">Welcome to Dudoxx Extraction!</h5>
+          <p>You are successfully logged in with your API key. You can now use the extraction features.</p>
+        </div>
+        
+        <div class="row mt-4">
+          <div class="col-md-4 mb-4">
+            <div class="card h-100">
+              <div class="card-body text-center">
+                <h5 class="card-title">Text Extraction</h5>
+                <p class="card-text">Extract information from text using natural language queries.</p>
+                <a href="/extract?type=text" class="btn btn-primary">Extract from Text</a>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-4 mb-4">
+            <div class="card h-100">
+              <div class="card-body text-center">
+                <h5 class="card-title">File Extraction</h5>
+                <p class="card-text">Extract information from uploaded files (TXT, PDF, DOCX, etc.).</p>
+                <a href="/extract?type=file" class="btn btn-primary">Extract from File</a>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-4 mb-4">
+            <div class="card h-100">
+              <div class="card-body text-center">
+                <h5 class="card-title">Multi-Query Extraction</h5>
+                <p class="card-text">Extract information using multiple queries at once.</p>
+                <a href="/extract?type=multi-query" class="btn btn-primary">Multi-Query Extraction</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="row mt-2">
+          <div class="col-md-6 mb-4">
+            <div class="card h-100">
+              <div class="card-body">
+                <h5 class="card-title">About Dudoxx Extraction</h5>
+                <p class="card-text">
+                  Dudoxx Extraction is a powerful system for extracting structured information from text documents using LLM technology.
+                  It supports various document formats and can automatically identify domains and fields based on your queries.
+                </p>
+                <p class="card-text">
+                  The system uses domain-specific knowledge to extract information more accurately and can process documents in parallel for improved performance.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6 mb-4">
+            <div class="card h-100">
+              <div class="card-body">
+                <h5 class="card-title">Supported Features</h5>
+                <ul class="list-group list-group-flush">
+                  <li class="list-group-item">Natural language queries</li>
+                  <li class="list-group-item">Multiple document formats (TXT, PDF, DOCX, HTML, CSV)</li>
+                  <li class="list-group-item">Domain identification</li>
+                  <li class="list-group-item">Parallel extraction for improved performance</li>
+                  <li class="list-group-item">Multiple output formats (JSON, Text)</li>
+                  <li class="list-group-item">Real-time progress tracking</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

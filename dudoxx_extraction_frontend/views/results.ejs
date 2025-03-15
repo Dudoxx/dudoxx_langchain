@@ -1,0 +1,160 @@
+<% active = 'results' %>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow mb-4">
+      <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Extraction Results</h4>
+        <a href="/extract" class="btn btn-sm btn-light">New Extraction</a>
+      </div>
+      <div class="card-body">
+        <% if (result) { %>
+          <div class="alert alert-info mb-4">
+            <div class="row">
+              <div class="col-md-6">
+                <h5 class="alert-heading">Extraction Details</h5>
+                <p class="mb-1"><strong>Status:</strong> <%= result.status %></p>
+                <p class="mb-1"><strong>Operation Type:</strong> <%= result.operation_type %></p>
+                <% if (result.query) { %>
+                  <p class="mb-1"><strong>Query:</strong> <%= result.query %></p>
+                <% } %>
+                <% if (result.queries && result.queries.length > 0) { %>
+                  <p class="mb-1"><strong>Queries:</strong></p>
+                  <ul class="mb-1">
+                    <% result.queries.forEach(function(query) { %>
+                      <li><%= query %></li>
+                    <% }); %>
+                  </ul>
+                <% } %>
+              </div>
+              <div class="col-md-6">
+                <% if (result.domain) { %>
+                  <p class="mb-1"><strong>Domain:</strong> <%= result.domain %></p>
+                <% } %>
+                <% if (result.fields && result.fields.length > 0) { %>
+                  <p class="mb-1"><strong>Fields:</strong> <%= result.fields.join(', ') %></p>
+                <% } %>
+                <% if (result.error_message) { %>
+                  <div class="alert alert-danger mt-2">
+                    <p class="mb-0"><strong>Error:</strong> <%= result.error_message %></p>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+          </div>
+          
+          <% if (result.domain_identification) { %>
+            <div class="card mb-4">
+              <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Domain Identification</h5>
+              </div>
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h6>Matched Domains</h6>
+                    <% if (result.domain_identification.matched_domains && result.domain_identification.matched_domains.length > 0) { %>
+                      <ul class="list-group">
+                        <% result.domain_identification.matched_domains.forEach(function(domain) { %>
+                          <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <%= domain.domain_name %>
+                            <span class="badge bg-primary rounded-pill"><%= (domain.confidence * 100).toFixed(1) %>%</span>
+                          </li>
+                        <% }); %>
+                      </ul>
+                    <% } else { %>
+                      <p class="text-muted">No domains matched</p>
+                    <% } %>
+                  </div>
+                  <div class="col-md-6">
+                    <h6>Matched Fields</h6>
+                    <% if (result.domain_identification.matched_fields && result.domain_identification.matched_fields.length > 0) { %>
+                      <ul class="list-group">
+                        <% result.domain_identification.matched_fields.forEach(function(field) { %>
+                          <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <%= field.field_name %> (<%= field.domain_name %>/<%= field.sub_domain_name %>)
+                            <span class="badge bg-primary rounded-pill"><%= (field.confidence * 100).toFixed(1) %>%</span>
+                          </li>
+                        <% }); %>
+                      </ul>
+                    <% } else { %>
+                      <p class="text-muted">No fields matched</p>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <% } %>
+          
+          <% if (result.extraction_result) { %>
+            <div class="card">
+              <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Extraction Result</h5>
+              </div>
+              <div class="card-body">
+                <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                  <% if (result.extraction_result.json_output) { %>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link active" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-tab-pane" 
+                              type="button" role="tab" aria-controls="json-tab-pane" aria-selected="true">
+                        JSON
+                      </button>
+                    </li>
+                  <% } %>
+                  <% if (result.extraction_result.text_output) { %>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link <%= !result.extraction_result.json_output ? 'active' : '' %>" 
+                              id="text-result-tab" data-bs-toggle="tab" data-bs-target="#text-result-tab-pane" 
+                              type="button" role="tab" aria-controls="text-result-tab-pane" 
+                              aria-selected="<%= !result.extraction_result.json_output ? 'true' : 'false' %>">
+                        Text
+                      </button>
+                    </li>
+                  <% } %>
+                  <% if (result.extraction_result.metadata) { %>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link <%= !result.extraction_result.json_output && !result.extraction_result.text_output ? 'active' : '' %>" 
+                              id="metadata-tab" data-bs-toggle="tab" data-bs-target="#metadata-tab-pane" 
+                              type="button" role="tab" aria-controls="metadata-tab-pane" 
+                              aria-selected="<%= !result.extraction_result.json_output && !result.extraction_result.text_output ? 'true' : 'false' %>">
+                        Metadata
+                      </button>
+                    </li>
+                  <% } %>
+                </ul>
+                
+                <div class="tab-content p-3 border border-top-0 rounded-bottom" id="resultsTabsContent">
+                  <% if (result.extraction_result.json_output) { %>
+                    <div class="tab-pane fade show active" id="json-tab-pane" role="tabpanel" aria-labelledby="json-tab" tabindex="0">
+                      <pre class="bg-light p-3 rounded"><%= JSON.stringify(result.extraction_result.json_output, null, 2) %></pre>
+                    </div>
+                  <% } %>
+                  <% if (result.extraction_result.text_output) { %>
+                    <div class="tab-pane fade <%= !result.extraction_result.json_output ? 'show active' : '' %>" 
+                         id="text-result-tab-pane" role="tabpanel" aria-labelledby="text-result-tab" tabindex="0">
+                      <pre class="bg-light p-3 rounded"><%= result.extraction_result.text_output %></pre>
+                    </div>
+                  <% } %>
+                  <% if (result.extraction_result.metadata) { %>
+                    <div class="tab-pane fade <%= !result.extraction_result.json_output && !result.extraction_result.text_output ? 'show active' : '' %>" 
+                         id="metadata-tab-pane" role="tabpanel" aria-labelledby="metadata-tab" tabindex="0">
+                      <pre class="bg-light p-3 rounded"><%= JSON.stringify(result.extraction_result.metadata, null, 2) %></pre>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+            </div>
+          <% } %>
+        <% } else { %>
+          <div class="alert alert-warning">
+            <h5 class="alert-heading">No Results Available</h5>
+            <p class="mb-0">No extraction results are available. Please perform an extraction first.</p>
+            <hr>
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+              <a href="/extract" class="btn btn-primary">Go to Extraction</a>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

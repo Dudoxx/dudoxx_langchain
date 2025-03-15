@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dudoxx Extraction</title>
+  
+  <!-- Bootstrap CSS (served locally) -->
+  <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/css/styles.css">
+  
+  <!-- Socket.IO (served from server) -->
+  <script src="/socket.io/socket.io.js"></script>
+  
+  <!-- Bootstrap JS (served locally) -->
+  <script src="/bootstrap/js/bootstrap.bundle.min.js" defer></script>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="/">Dudoxx Extraction</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <% if (typeof user !== 'undefined') { %>
+            <li class="nav-item">
+              <a class="nav-link <%= (typeof active !== 'undefined' && active === 'dashboard') ? 'active' : '' %>" href="/dashboard">Dashboard</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link <%= (typeof active !== 'undefined' && active === 'extract') ? 'active' : '' %>" href="/extract">Extract</a>
+            </li>
+          <% } %>
+        </ul>
+        <ul class="navbar-nav">
+          <% if (typeof user !== 'undefined') { %>
+            <li class="nav-item">
+              <a class="nav-link" href="/logout">Logout</a>
+            </li>
+          <% } else { %>
+            <li class="nav-item">
+              <a class="nav-link <%= (typeof active !== 'undefined' && active === 'login') ? 'active' : '' %>" href="/login">Login</a>
+            </li>
+          <% } %>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="container my-4">
+    <%- body %>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-light py-3 mt-5">
+    <div class="container text-center">
+      <p class="text-muted mb-0">Dudoxx Extraction Frontend &copy; 2025</p>
+    </div>
+  </footer>
+
+  <!-- Custom JavaScript -->
+  <script src="/static/js/main.js"></script>
+  
+  <!-- Page-specific scripts -->
+  <% if (typeof scripts !== 'undefined') { %>
+    <% scripts.forEach(function(script) { %>
+      <script src="<%= script %>"></script>
+    <% }); %>
+  <% } %>
+</body>
+</html>

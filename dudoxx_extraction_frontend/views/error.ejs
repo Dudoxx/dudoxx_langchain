@@ -1,0 +1,24 @@
+<% active = 'error' %>
+
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card shadow">
+      <div class="card-header bg-danger text-white">
+        <h4 class="mb-0">Error <%= error.status %></h4>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-danger">
+          <h5 class="alert-heading"><%= error.message %></h5>
+          <% if (error.details) { %>
+            <hr>
+            <p class="mb-0"><%= error.details %></p>
+          <% } %>
+        </div>
+        
+        <div class="text-center mt-4">
+          <a href="/" class="btn btn-primary">Return to Dashboard</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

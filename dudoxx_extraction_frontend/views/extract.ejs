@@ -1,0 +1,261 @@
+<% active = 'extract' %>
+<% scripts = ['/static/js/extract.js'] %>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow mb-4">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Extraction</h4>
+      </div>
+      <div class="card-body">
+        <ul class="nav nav-tabs" id="extractionTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link <%= (typeof type !== 'undefined' && type === 'text') || !type ? 'active' : '' %>" 
+                    id="text-tab" data-bs-toggle="tab" data-bs-target="#text-tab-pane" 
+                    type="button" role="tab" aria-controls="text-tab-pane" aria-selected="true">
+              Text Extraction
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link <%= (typeof type !== 'undefined' && type === 'file') ? 'active' : '' %>" 
+                    id="file-tab" data-bs-toggle="tab" data-bs-target="#file-tab-pane" 
+                    type="button" role="tab" aria-controls="file-tab-pane" aria-selected="false">
+              File Extraction
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link <%= (typeof type !== 'undefined' && type === 'multi-query') ? 'active' : '' %>" 
+                    id="multi-query-tab" data-bs-toggle="tab" data-bs-target="#multi-query-tab-pane" 
+                    type="button" role="tab" aria-controls="multi-query-tab-pane" aria-selected="false">
+              Multi-Query Extraction
+            </button>
+          </li>
+        </ul>
+        
+        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="extractionTabsContent">
+          <!-- Text Extraction Tab -->
+          <div class="tab-pane fade <%= (typeof type !== 'undefined' && type === 'text') || !type ? 'show active' : '' %>" 
+               id="text-tab-pane" role="tabpanel" aria-labelledby="text-tab" tabindex="0">
+            <form id="textExtractionForm" class="needs-validation" novalidate>
+              <div class="mb-3">
+                <label for="textQuery" class="form-label">Query</label>
+                <input type="text" class="form-control" id="textQuery" name="query" 
+                       placeholder="E.g., Extract all parties involved in the contract" required>
+                <div class="form-text">Describe what information you want to extract.</div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="textContent" class="form-label">Text Content</label>
+                <textarea class="form-control" id="textContent" name="text" rows="10" required></textarea>
+                <div class="form-text">Paste the text you want to analyze.</div>
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label for="textDomain" class="form-label">Domain (Optional)</label>
+                  <select class="form-select" id="textDomain" name="domain">
+                    <option value="">Auto-detect</option>
+                    <option value="legal">Legal</option>
+                    <option value="medical">Medical</option>
+                    <option value="financial">Financial</option>
+                    <option value="general">General</option>
+                  </select>
+                  <div class="form-text">Select a specific domain or let the system auto-detect.</div>
+                </div>
+                
+                <div class="col-md-6">
+                  <label class="form-label d-block">Options</label>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="textUseParallel" name="useParallel" value="true">
+                    <label class="form-check-label" for="textUseParallel">Use Parallel Extraction</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button type="submit" class="btn btn-primary" id="textExtractButton">
+                  <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                  Extract Information
+                </button>
+              </div>
+            </form>
+          </div>
+          
+          <!-- File Extraction Tab -->
+          <div class="tab-pane fade <%= (typeof type !== 'undefined' && type === 'file') ? 'show active' : '' %>" 
+               id="file-tab-pane" role="tabpanel" aria-labelledby="file-tab" tabindex="0">
+            <form id="fileExtractionForm" class="needs-validation" novalidate enctype="multipart/form-data">
+              <div class="mb-3">
+                <label for="fileQuery" class="form-label">Query</label>
+                <input type="text" class="form-control" id="fileQuery" name="query" 
+                       placeholder="E.g., Extract all parties involved in the contract" required>
+                <div class="form-text">Describe what information you want to extract.</div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="fileUpload" class="form-label">Upload File</label>
+                <input class="form-control" type="file" id="fileUpload" name="file" required
+                       accept=".txt,.pdf,.docx,.doc,.html,.htm,.csv,.xlsx,.xls">
+                <div class="form-text">Supported formats: TXT, PDF, DOCX, HTML, CSV, Excel</div>
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label for="fileDomain" class="form-label">Domain (Optional)</label>
+                  <select class="form-select" id="fileDomain" name="domain">
+                    <option value="">Auto-detect</option>
+                    <option value="legal">Legal</option>
+                    <option value="medical">Medical</option>
+                    <option value="financial">Financial</option>
+                    <option value="general">General</option>
+                  </select>
+                  <div class="form-text">Select a specific domain or let the system auto-detect.</div>
+                </div>
+                
+                <div class="col-md-6">
+                  <label class="form-label d-block">Options</label>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="fileUseParallel" name="useParallel" value="true">
+                    <label class="form-check-label" for="fileUseParallel">Use Parallel Extraction</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button type="submit" class="btn btn-primary" id="fileExtractButton">
+                  <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                  Extract Information
+                </button>
+              </div>
+            </form>
+          </div>
+          
+          <!-- Multi-Query Extraction Tab -->
+          <div class="tab-pane fade <%= (typeof type !== 'undefined' && type === 'multi-query') ? 'show active' : '' %>" 
+               id="multi-query-tab-pane" role="tabpanel" aria-labelledby="multi-query-tab" tabindex="0">
+            <form id="multiQueryExtractionForm" class="needs-validation" novalidate>
+              <div class="mb-3">
+                <label for="multiQueryList" class="form-label">Queries (One per line)</label>
+                <textarea class="form-control" id="multiQueryList" name="queries" rows="5" required
+                          placeholder="Extract all parties involved in the contract&#10;What is the effective date of the agreement?&#10;Find all payment terms in the document"></textarea>
+                <div class="form-text">Enter each query on a separate line.</div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="multiQueryContent" class="form-label">Text Content</label>
+                <textarea class="form-control" id="multiQueryContent" name="text" rows="10" required></textarea>
+                <div class="form-text">Paste the text you want to analyze.</div>
+              </div>
+              
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <label for="multiQueryDomain" class="form-label">Domain (Optional)</label>
+                  <select class="form-select" id="multiQueryDomain" name="domain">
+                    <option value="">Auto-detect</option>
+                    <option value="legal">Legal</option>
+                    <option value="medical">Medical</option>
+                    <option value="financial">Financial</option>
+                    <option value="general">General</option>
+                  </select>
+                  <div class="form-text">Select a specific domain or let the system auto-detect.</div>
+                </div>
+                
+                <div class="col-md-6">
+                  <label class="form-label d-block">Options</label>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="multiQueryUseParallel" name="useParallel" value="true">
+                    <label class="form-check-label" for="multiQueryUseParallel">Use Parallel Extraction</label>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button type="submit" class="btn btn-primary" id="multiQueryExtractButton">
+                  <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                  Extract Information
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+        
+        <!-- Progress Section -->
+        <div id="progressSection" class="mt-4 d-none">
+          <div class="card">
+            <div class="card-header bg-info text-white">
+              <h5 class="mb-0">Extraction Progress</h5>
+            </div>
+            <div class="card-body">
+              <div class="progress mb-3">
+                <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+              </div>
+              <p id="progressMessage" class="mb-0">Preparing extraction...</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="resultsSection" class="mt-4 d-none">
+          <div class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">Extraction Results</h5>
+              <button id="viewFullResultsButton" class="btn btn-sm btn-light">View Full Results</button>
+            </div>
+            <div class="card-body">
+              <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active" id="json-tab" data-bs-toggle="tab" data-bs-target="#json-tab-pane" 
+                          type="button" role="tab" aria-controls="json-tab-pane" aria-selected="true">
+                    JSON
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="text-result-tab" data-bs-toggle="tab" data-bs-target="#text-result-tab-pane" 
+                          type="button" role="tab" aria-controls="text-result-tab-pane" aria-selected="false">
+                    Text
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="metadata-tab" data-bs-toggle="tab" data-bs-target="#metadata-tab-pane" 
+                          type="button" role="tab" aria-controls="metadata-tab-pane" aria-selected="false">
+                    Metadata
+                  </button>
+                </li>
+              </ul>
+              
+              <div class="tab-content p-3 border border-top-0 rounded-bottom" id="resultsTabsContent">
+                <div class="tab-pane fade show active" id="json-tab-pane" role="tabpanel" aria-labelledby="json-tab" tabindex="0">
+                  <pre id="jsonResult" class="bg-light p-3 rounded">No results yet</pre>
+                </div>
+                <div class="tab-pane fade" id="text-result-tab-pane" role="tabpanel" aria-labelledby="text-result-tab" tabindex="0">
+                  <pre id="textResult" class="bg-light p-3 rounded">No results yet</pre>
+                </div>
+                <div class="tab-pane fade" id="metadata-tab-pane" role="tabpanel" aria-labelledby="metadata-tab" tabindex="0">
+                  <pre id="metadataResult" class="bg-light p-3 rounded">No results yet</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Socket.io connection for real-time updates -->
+<script>
+  // Store socket ID for server-side use
+  const socket = io();
+  let socketId = null;
+  
+  socket.on('connect', () => {
+    socketId = socket.id;
+    console.log('Connected to server with ID:', socketId);
+  });
+  
+  // Listen for progress updates
+  socket.on('progress', (data) => {
+    updateProgress(data);
+  });
+</script>
