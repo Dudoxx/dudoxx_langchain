@@ -408,12 +408,20 @@ async def extract_file(
             # If file can't be read as text, use document loaders
             add_progress_update(request_id, "processing", "File is binary, using document loaders...", 30)
             domain_identification = None
-            identified_domain = domain
+            # Use domain from request or default to "general"
+            identified_domain = domain if domain else "general"
+            console.print(f"[yellow]Binary file detected. Using domain: {identified_domain}[/]")
             fields = []
         
         # Use domain from request if provided
         if domain:
             identified_domain = domain
+        
+        # Ensure we have a valid domain
+        if not identified_domain:
+            identified_domain = "general"
+            console.print("[yellow]No domain identified or provided. Using default domain: general[/]")
+            add_progress_update(request_id, "processing", "No domain identified. Using default domain: general", 35)
         
         # Extract information
         add_progress_update(
