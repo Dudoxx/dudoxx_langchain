@@ -10,7 +10,7 @@ A web-based frontend for the Dudoxx Extraction API that provides a user-friendly
 - **Multi-Query Extraction**: Process multiple extraction queries on the same text
 - **Domain Identification**: Automatically identify the most relevant domains and fields
 - **Parallel Processing**: Option to use parallel extraction for improved performance
-- **Real-time Progress Tracking**: Monitor extraction progress in real-time
+- **Real-time Progress Tracking**: Monitor extraction progress in real-time via Socket.IO
 - **Result Visualization**: View extraction results in JSON, text, and metadata formats
 - **Responsive Design**: Works on desktop and mobile devices
 
@@ -21,6 +21,7 @@ A web-based frontend for the Dudoxx Extraction API that provides a user-friendly
 - Node.js 14+
 - npm or yarn
 - Dudoxx Extraction API running
+- Dudoxx Extraction Socket.IO server running
 
 ### Setup
 
@@ -36,6 +37,7 @@ npm install
 ```
 PORT=3000
 API_BASE_URL=http://localhost:8000/api/v1
+SOCKET_IO_URL=http://localhost:8001
 SESSION_SECRET=your-session-secret
 ```
 
@@ -63,7 +65,7 @@ The frontend will be available at `http://localhost:3000`.
 4. Paste the text content
 5. Optionally select a domain or enable parallel processing
 6. Click "Extract Information"
-7. View the extraction results
+7. View the real-time progress updates and extraction results
 
 ### File Extraction
 
@@ -73,7 +75,7 @@ The frontend will be available at `http://localhost:3000`.
 4. Upload a file (supported formats: TXT, PDF, DOCX, HTML, CSV)
 5. Optionally select a domain or enable parallel processing
 6. Click "Extract Information"
-7. View the extraction results
+7. View the real-time progress updates and extraction results
 
 ### Multi-Query Extraction
 
@@ -83,7 +85,7 @@ The frontend will be available at `http://localhost:3000`.
 4. Paste the text content
 5. Optionally select a domain or enable parallel processing
 6. Click "Extract Information"
-7. View the extraction results for all queries
+7. View the real-time progress updates and extraction results for all queries
 
 ## Project Structure
 
@@ -107,6 +109,39 @@ dudoxx_extraction_frontend/
 ├── package.json           # Dependencies
 └── README.md              # Documentation
 ```
+
+## Real-time Progress Updates
+
+The frontend connects to the Socket.IO server to receive real-time progress updates during extraction. The Socket.IO client is initialized in `public/js/extract.js`:
+
+```javascript
+// Initialize Socket.IO client
+const socket = io(SOCKET_IO_URL);
+
+// Handle connection events
+socket.on('connect', () => {
+  console.log('Connected to Socket.IO server');
+  showStatus('Connected to real-time updates server');
+});
+
+// Handle progress updates
+socket.on('progress', (data) => {
+  console.log('Progress update:', data);
+  updateProgressBar(data.percentage);
+  updateStatusMessage(data.status, data.message);
+});
+
+// Handle disconnection events
+socket.on('disconnect', () => {
+  console.log('Disconnected from Socket.IO server');
+  showStatus('Disconnected from real-time updates server');
+});
+```
+
+Progress updates include:
+- `status`: Current status of the extraction ('starting', 'processing', 'completed', 'error')
+- `message`: Human-readable progress message
+- `percentage`: Optional percentage of completion (0-100)
 
 ## Technologies Used
 

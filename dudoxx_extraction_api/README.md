@@ -14,6 +14,7 @@ A REST API for the Dudoxx Extraction system that provides endpoints for extracti
 - **Rich Logging**: Detailed console logging with rich formatting
 - **API Key Authentication**: Secure API access with API key authentication
 - **Swagger Documentation**: Interactive API documentation with Swagger UI
+- **Real-time Progress Updates**: Socket.IO integration for real-time extraction progress tracking
 
 ## Installation
 
@@ -58,13 +59,29 @@ EXTRACTION_INCLUDE_METADATA=true
 
 ## Usage
 
-### Starting the API Server
+### Starting the API and Socket.IO Servers
+
+The API consists of two servers:
+- FastAPI server for handling API requests (port 8000)
+- Socket.IO server for real-time progress updates (port 8001)
+
+You can start both servers with a single command:
 
 ```bash
-python main.py
+./run_servers.sh
 ```
 
-This will start the API server on `http://localhost:8000`.
+Or start them separately:
+
+```bash
+# Start the FastAPI server
+python main.py
+
+# Start the Socket.IO server
+python run_socketio.py
+```
+
+The API server will be available at `http://localhost:8000` and the Socket.IO server at `http://localhost:8001`.
 
 ### API Documentation
 
@@ -280,6 +297,36 @@ curl -X POST "http://localhost:8000/api/v1/extract/text" \
      -d '{"text": "Patient: John Doe\nDOB: 05/15/1980", "query": "Extract patient information"}'
 ```
 
+### Real-time Progress Updates
+
+The API provides real-time progress updates during extraction using Socket.IO. Clients can connect to the Socket.IO server at `http://localhost:8001` and listen for `progress` events.
+
+Example using JavaScript:
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:8001');
+
+socket.on('connect', () => {
+  console.log('Connected to Socket.IO server');
+});
+
+socket.on('progress', (data) => {
+  console.log('Progress update:', data);
+  // data = { status: 'processing', message: 'Extracting information...', percentage: 50 }
+});
+
+socket.on('disconnect', () => {
+  console.log('Disconnected from Socket.IO server');
+});
+```
+
+Progress updates include:
+- `status`: Current status of the extraction ('starting', 'processing', 'completed', 'error')
+- `message`: Human-readable progress message
+- `percentage`: Optional percentage of completion (0-100)
+
 ### Client Example
 
 A client example is provided in the `api_client_example.py` file. This script demonstrates how to use the API to extract information from text and files.
@@ -323,10 +370,12 @@ The API is configured using the `.env.dudoxx` file. See the [Setup](#setup) sect
 dudoxx_extraction_api/
 ├── __init__.py           # Package initialization
 ├── config.py             # Configuration module
-├── main.py               # Main application
+├── main.py               # Main application (FastAPI server)
 ├── models.py             # Pydantic models
 ├── routes.py             # API routes
 ├── utils.py              # Utility functions
+├── socket_manager.py     # Socket.IO manager
+├── run_socketio.py       # Socket.IO server
 ├── requirements.txt      # Dependencies
 └── README.md             # Documentation
 ```
@@ -338,6 +387,8 @@ dudoxx_extraction_api/
 - **routes.py**: Implements API endpoints using FastAPI
 - **utils.py**: Provides utility functions for domain identification and extraction
 - **main.py**: Sets up the FastAPI application and includes routes
+- **socket_manager.py**: Manages Socket.IO connections and events
+- **run_socketio.py**: Runs the Socket.IO server
 
 ### Adding New Endpoints
 

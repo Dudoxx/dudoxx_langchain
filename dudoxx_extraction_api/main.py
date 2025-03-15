@@ -94,6 +94,7 @@ async def startup_event():
     console.print(f"[bold]API Title:[/] {API_TITLE}")
     console.print(f"[bold]API Version:[/] {API_VERSION}")
     console.print(f"[bold]API Documentation:[/] http://localhost:8000/api/docs")
+    console.print(f"[bold]Socket.IO:[/] http://localhost:8001")
 
 
 @app.on_event("shutdown")
@@ -134,6 +135,9 @@ if __name__ == "__main__":
     import uvicorn
     
     console.print("[bold]Running Dudoxx Extraction API...[/]")
+    console.print("[bold yellow]Note:[/] Socket.IO server must be running separately on port 8001")
+    console.print("[bold yellow]Run:[/] python dudoxx_extraction_api/run_socketio.py")
+    
     uvicorn.run(
         "dudoxx_extraction_api.main:app",
         host="0.0.0.0",

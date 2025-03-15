@@ -15,6 +15,7 @@ A robust, scalable solution for extracting structured information from large tex
 - **Customizable Fields**: Extract specific fields based on your needs
 - **Domain-Specific Extraction**: Support for medical, legal, and other domains
 - **Environment Configuration**: Easy configuration via `.env` file
+- **Real-time Progress Updates**: Socket.IO integration for real-time extraction progress tracking
 
 ## Architecture
 
@@ -28,6 +29,7 @@ The solution consists of several components:
 6. **OutputFormatter**: Formats extraction results in different formats
 7. **RichLogger**: Provides rich console output with syntax highlighting
 8. **Client Interface**: Both synchronous and asynchronous clients for easy integration
+9. **Socket.IO Server**: Provides real-time progress updates during extraction
 
 ## Installation
 
@@ -115,6 +117,19 @@ python standalone_example.py
 python examples/parallel_extraction_example.py
 ```
 
+### Running the API and Socket.IO Servers
+
+The repository includes a FastAPI server and a Socket.IO server for real-time progress updates:
+
+```bash
+# Run both servers with a single command
+./run_servers.sh
+
+# Or run them separately
+python dudoxx_extraction_api/main.py  # FastAPI server on port 8000
+python dudoxx_extraction_api/run_socketio.py  # Socket.IO server on port 8001
+```
+
 ## Project Structure
 
 ```
@@ -123,12 +138,28 @@ dudoxx_langchain/
 ├── .gitignore                # Git ignore file
 ├── README.md                 # Project documentation
 ├── requirements.txt          # Project dependencies
+├── run_servers.sh            # Script to run API and Socket.IO servers
 ├── dudoxx_extraction/        # Main package
 │   ├── __init__.py           # Package initialization
 │   ├── client.py             # Client interface
 │   ├── example.py            # Example usage
 │   ├── extraction_pipeline.py # Main extraction pipeline
 │   └── README.md             # Package documentation
+├── dudoxx_extraction_api/    # API server
+│   ├── __init__.py           # Package initialization
+│   ├── main.py               # FastAPI server
+│   ├── socket_manager.py     # Socket.IO manager
+│   ├── run_socketio.py       # Socket.IO server
+│   └── README.md             # API documentation
+├── dudoxx_extraction_frontend/ # Express.js frontend
+│   ├── server.js             # Express server
+│   ├── public/               # Static assets
+│   ├── views/                # EJS templates
+│   └── README.md             # Frontend documentation
+├── dudoxx_extraction_nextjs/ # Next.js frontend (submodule)
+│   ├── src/                  # Source code
+│   ├── public/               # Static assets
+│   └── README.md             # Next.js frontend documentation
 ├── langchain_sdk/            # LangChain SDK
 │   ├── __init__.py           # Package initialization
 │   ├── api_service.py        # API service
