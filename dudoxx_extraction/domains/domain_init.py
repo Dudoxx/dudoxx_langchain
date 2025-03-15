@@ -11,6 +11,7 @@ from dudoxx_extraction.domains.specialized_medical_domains import register_speci
 from dudoxx_extraction.domains.demographic_domains import register_demographic_domain
 from dudoxx_extraction.domains.specialized_lab_results_domains import register_specialized_lab_results_domain
 from dudoxx_extraction.domains.specialized_legal_domains import register_specialized_legal_domain
+from dudoxx_extraction.domains.general_domain import register_general_domain
 
 
 def initialize_domains():
@@ -37,6 +38,9 @@ def initialize_domains():
     
     # Register specialized legal domain
     register_specialized_legal_domain()
+    
+    # Register general domain
+    register_general_domain()
     
     # Log registered domains
     registry = DomainRegistry()

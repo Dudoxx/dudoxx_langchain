@@ -31,8 +31,8 @@ class TextExtractionRequest(BaseModel):
     domain: Optional[str] = Field(None, description="Optional domain to use for extraction")
     output_formats: Optional[List[str]] = Field(None, description="Output formats to generate")
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "text": "Patient: John Doe\nDOB: 05/15/1980\nDiagnosis: Diabetes mellitus Type II",
                 "query": "Extract patient information and diagnosis",
@@ -40,6 +40,7 @@ class TextExtractionRequest(BaseModel):
                 "output_formats": ["json", "text"]
             }
         }
+    }
 
 
 class MultiQueryExtractionRequest(BaseModel):
@@ -49,8 +50,8 @@ class MultiQueryExtractionRequest(BaseModel):
     domain: Optional[str] = Field(None, description="Optional domain to use for extraction")
     output_formats: Optional[List[str]] = Field(None, description="Output formats to generate")
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "text": "Patient: John Doe\nDOB: 05/15/1980\nDiagnosis: Diabetes mellitus Type II",
                 "queries": [
@@ -61,6 +62,7 @@ class MultiQueryExtractionRequest(BaseModel):
                 "output_formats": ["json", "text"]
             }
         }
+    }
 
     @validator('queries')
     def validate_queries(cls, v):
@@ -113,6 +115,7 @@ class ExtractionResponse(BaseModel):
     queries: Optional[List[str]] = Field(None, description="Queries used for multi-query extraction")
     domain: Optional[str] = Field(None, description="Domain used for extraction")
     fields: Optional[List[str]] = Field(None, description="Fields extracted")
+    request_id: str = Field(..., description="Unique identifier for tracking progress")
 
 
 class HealthCheckResponse(BaseModel):

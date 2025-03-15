@@ -6,13 +6,16 @@ This module defines the API routes for the extraction endpoints.
 
 import os
 import tempfile
+import uuid
 from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Header, Form, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Header, Form, Body, Query, Request
 from fastapi.security.api_key import APIKeyHeader
 from starlette.status import HTTP_403_FORBIDDEN, HTTP_400_BAD_REQUEST, HTTP_500_INTERNAL_SERVER_ERROR
+from rich.panel import Panel
 
 from dudoxx_extraction_api.config import API_PREFIX, API_KEY
+from dudoxx_extraction_api.progress_manager import add_progress_update, get_progress_endpoint
 from dudoxx_extraction_api.models import (
     TextExtractionRequest,
     MultiQueryExtractionRequest,
@@ -30,7 +33,8 @@ from dudoxx_extraction_api.utils import (
     extract_from_text,
     extract_from_file,
     save_temp_file,
-    format_extraction_result
+    format_extraction_result,
+    console
 )
 
 # Create API router
@@ -59,6 +63,51 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
             detail="Invalid API key"
         )
     return api_key
+
+
+# Add SSE endpoint for progress updates
+@router.get("/progress/{request_id}", tags=["Progress"])
+async def progress_stream(
+    request: Request, 
+    request_id: str, 
+    api_key: Optional[str] = Query(None, description="API key (can be provided in query parameter)")
+):
+    """
+    Get progress updates for a specific request.
+    
+    This endpoint uses Server-Sent Events (SSE) to stream progress updates
+    to the client in real-time.
+    
+    Args:
+        request: FastAPI request object
+        request_id: Unique identifier for the request
+        api_key: API key (can be provided in query parameter)
+        
+    Returns:
+        SSE stream of progress updates
+    """
+    # Verify API key from query parameter or header
+    header_api_key = request.headers.get("X-API-Key")
+    
+    if not api_key and not header_api_key:
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN,
+            detail="API key is required"
+        )
+    
+    if (api_key and api_key != API_KEY) or (header_api_key and header_api_key != API_KEY):
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN,
+            detail="Invalid API key"
+        )
+    
+    console.print(Panel(
+        f"[bold blue]Client connected to progress stream for request {request_id}[/]",
+        title="Progress Stream Request",
+        border_style="blue"
+    ))
+    
+    return get_progress_endpoint(request, request_id)
 
 
 @router.get("/health", response_model=HealthCheckResponse, tags=["Health"])
@@ -94,12 +143,17 @@ async def extract_text(
         Extraction response
     """
     operation_type = OperationType.TEXT_EXTRACTION
+    request_id = str(uuid.uuid4())
     
     try:
         # Log request
         log_request(operation_type, request.dict())
         
+        # Send initial progress update
+        add_progress_update(request_id, "starting", "Starting extraction process...")
+        
         # Identify domains and fields
+        add_progress_update(request_id, "processing", "Identifying domains and fields...", 20)
         domain_identification, domain, fields = identify_domains_and_fields(request.text, request.query)
         
         # Use domain from request if provided
@@ -107,6 +161,7 @@ async def extract_text(
             domain = request.domain
         
         # Extract information
+        add_progress_update(request_id, "processing", f"Extracting information using domain: {domain}...", 40)
         result = extract_from_text(
             text=request.text,
             query=request.query,
@@ -114,6 +169,9 @@ async def extract_text(
             output_formats=request.output_formats,
             use_parallel=use_parallel
         )
+        
+        # Send completion progress update
+        add_progress_update(request_id, "completed", "Extraction completed successfully", 100)
         
         # Create response
         response = ExtractionResponse(
@@ -123,7 +181,8 @@ async def extract_text(
             extraction_result=format_extraction_result(result),
             query=request.query,
             domain=domain,
-            fields=fields
+            fields=fields,
+            request_id=request_id
         )
         
         # Log response
@@ -134,13 +193,17 @@ async def extract_text(
         # Log error
         log_error(operation_type, e)
         
+        # Send error progress update
+        add_progress_update(request_id, "error", f"Extraction failed: {str(e)}", 100)
+        
         # Create error response
         response = ExtractionResponse(
             status=ExtractionStatus.ERROR,
             operation_type=operation_type,
             error_message=str(e),
             query=request.query,
-            domain=request.domain
+            domain=request.domain,
+            request_id=request_id
         )
         
         # Log response
@@ -167,10 +230,14 @@ async def extract_multi_query(
         Extraction response
     """
     operation_type = OperationType.MULTI_QUERY_EXTRACTION
+    request_id = str(uuid.uuid4())
     
     try:
         # Log request
         log_request(operation_type, request.dict())
+        
+        # Send initial progress update
+        add_progress_update(request_id, "starting", "Starting multi-query extraction process...")
         
         # Process each query
         all_results = {}
@@ -178,7 +245,17 @@ async def extract_multi_query(
         all_fields = set()
         primary_domain_identification = None
         
-        for query in request.queries:
+        total_queries = len(request.queries)
+        for i, query in enumerate(request.queries):
+            # Update progress
+            progress_percentage = int(20 + (60 * (i / total_queries)))
+            add_progress_update(
+                request_id, 
+                "processing", 
+                f"Processing query {i+1}/{total_queries}: {query[:50]}...", 
+                progress_percentage
+            )
+            
             # Identify domains and fields
             domain_identification, domain, fields = identify_domains_and_fields(request.text, query)
             
@@ -205,6 +282,7 @@ async def extract_multi_query(
                 primary_domain_identification = domain_identification
         
         # Merge results
+        add_progress_update(request_id, "processing", "Merging results from all queries...", 90)
         merged_result = {
             "json_output": {},
             "text_output": "",
@@ -225,6 +303,9 @@ async def extract_multi_query(
                 merged_result["text_output"] += f"\n\n--- Results for query: {query} ---\n\n"
                 merged_result["text_output"] += result["text_output"]
         
+        # Send completion progress update
+        add_progress_update(request_id, "completed", "Multi-query extraction completed successfully", 100)
+        
         # Create response
         response = ExtractionResponse(
             status=ExtractionStatus.SUCCESS,
@@ -233,7 +314,8 @@ async def extract_multi_query(
             extraction_result=format_extraction_result(merged_result),
             queries=request.queries,
             domain=request.domain or ", ".join(all_domains),
-            fields=list(all_fields)
+            fields=list(all_fields),
+            request_id=request_id
         )
         
         # Log response
@@ -244,13 +326,17 @@ async def extract_multi_query(
         # Log error
         log_error(operation_type, e)
         
+        # Send error progress update
+        add_progress_update(request_id, "error", f"Multi-query extraction failed: {str(e)}", 100)
+        
         # Create error response
         response = ExtractionResponse(
             status=ExtractionStatus.ERROR,
             operation_type=operation_type,
             error_message=str(e),
             queries=request.queries,
-            domain=request.domain
+            domain=request.domain,
+            request_id=request_id
         )
         
         # Log response
@@ -284,6 +370,7 @@ async def extract_file(
     """
     operation_type = OperationType.FILE_EXTRACTION
     temp_file_path = None
+    request_id = str(uuid.uuid4())
     
     try:
         # Log request
@@ -295,24 +382,31 @@ async def extract_file(
             "use_parallel": use_parallel
         })
         
+        # Send initial progress update
+        add_progress_update(request_id, "starting", f"Starting extraction from file: {file.filename}...")
+        
         # Parse output formats
         output_formats_list = output_formats.split(",") if output_formats else None
         
         # Save file to temporary location
+        add_progress_update(request_id, "processing", "Saving uploaded file...", 10)
         temp_file_path = os.path.join(tempfile.gettempdir(), file.filename)
         with open(temp_file_path, "wb") as f:
             content = await file.read()
             f.write(content)
         
         # Read file content for domain identification
+        add_progress_update(request_id, "processing", "Analyzing file content...", 20)
         try:
             with open(temp_file_path, "r") as f:
                 text = f.read()
                 
             # Identify domains and fields
+            add_progress_update(request_id, "processing", "Identifying domains and fields...", 30)
             domain_identification, identified_domain, fields = identify_domains_and_fields(text, query)
         except UnicodeDecodeError:
             # If file can't be read as text, use document loaders
+            add_progress_update(request_id, "processing", "File is binary, using document loaders...", 30)
             domain_identification = None
             identified_domain = domain
             fields = []
@@ -322,6 +416,12 @@ async def extract_file(
             identified_domain = domain
         
         # Extract information
+        add_progress_update(
+            request_id, 
+            "processing", 
+            f"Extracting information using domain: {identified_domain}...", 
+            40
+        )
         result = extract_from_file(
             file_path=temp_file_path,
             query=query,
@@ -329,6 +429,9 @@ async def extract_file(
             output_formats=output_formats_list,
             use_parallel=use_parallel
         )
+        
+        # Send completion progress update
+        add_progress_update(request_id, "completed", "File extraction completed successfully", 100)
         
         # Create response
         response = ExtractionResponse(
@@ -338,7 +441,8 @@ async def extract_file(
             extraction_result=format_extraction_result(result),
             query=query,
             domain=identified_domain,
-            fields=fields
+            fields=fields,
+            request_id=request_id
         )
         
         # Log response
@@ -349,13 +453,17 @@ async def extract_file(
         # Log error
         log_error(operation_type, e)
         
+        # Send error progress update
+        add_progress_update(request_id, "error", f"File extraction failed: {str(e)}", 100)
+        
         # Create error response
         response = ExtractionResponse(
             status=ExtractionStatus.ERROR,
             operation_type=operation_type,
             error_message=str(e),
             query=query,
-            domain=domain
+            domain=domain,
+            request_id=request_id
         )
         
         # Log response
@@ -392,6 +500,7 @@ async def extract_document(
     """
     operation_type = OperationType.FILE_EXTRACTION
     temp_file_path = None
+    request_id = str(uuid.uuid4())
     
     try:
         # Log request
@@ -401,16 +510,30 @@ async def extract_document(
             "output_formats": output_formats
         })
         
+        # Send initial progress update
+        add_progress_update(
+            request_id, 
+            "starting", 
+            f"Starting document extraction from {file.filename} using domain: {domain}..."
+        )
+        
         # Parse output formats
         output_formats_list = output_formats.split(",") if output_formats else None
         
         # Save file to temporary location
+        add_progress_update(request_id, "processing", "Saving uploaded file...", 10)
         temp_file_path = os.path.join(tempfile.gettempdir(), file.filename)
         with open(temp_file_path, "wb") as f:
             content = await file.read()
             f.write(content)
         
         # Use parallel extraction pipeline
+        add_progress_update(
+            request_id, 
+            "processing", 
+            "Processing document with parallel extraction pipeline...", 
+            30
+        )
         from dudoxx_extraction.parallel_extraction_pipeline import extract_document_sync
         
         result = extract_document_sync(
@@ -419,12 +542,16 @@ async def extract_document(
             output_formats=output_formats_list
         )
         
+        # Send completion progress update
+        add_progress_update(request_id, "completed", "Document extraction completed successfully", 100)
+        
         # Create response
         response = ExtractionResponse(
             status=ExtractionStatus.SUCCESS,
             operation_type=operation_type,
             extraction_result=format_extraction_result(result),
-            domain=domain
+            domain=domain,
+            request_id=request_id
         )
         
         # Log response
@@ -435,12 +562,16 @@ async def extract_document(
         # Log error
         log_error(operation_type, e)
         
+        # Send error progress update
+        add_progress_update(request_id, "error", f"Document extraction failed: {str(e)}", 100)
+        
         # Create error response
         response = ExtractionResponse(
             status=ExtractionStatus.ERROR,
             operation_type=operation_type,
             error_message=str(e),
-            domain=domain
+            domain=domain,
+            request_id=request_id
         )
         
         # Log response

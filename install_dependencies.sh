@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Run the FastAPI server with SSE support
+# Install dependencies for the Dudoxx Extraction API
 
 # Source conda to enable conda activate in the script
 eval "$(conda shell.bash hook)"
@@ -12,6 +12,8 @@ conda activate dudoxx-langchain
 echo "Installing required packages..."
 pip install -r dudoxx_extraction_api/requirements.txt
 
-# Run the FastAPI server
-echo "Starting FastAPI server with SSE support..."
-python dudoxx_extraction_api/main.py
+# Install SSE dependency
+echo "Installing SSE dependency..."
+pip install sse-starlette>=1.6.5
+
+echo "Dependencies installed successfully!"

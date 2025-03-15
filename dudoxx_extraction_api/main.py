@@ -7,11 +7,15 @@ This module initializes the FastAPI application and includes the API routes.
 import os
 import sys
 from typing import Dict, Any
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
 from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.box import ROUNDED
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,6 +26,7 @@ from dudoxx_extraction.domains.domain_init import initialize_domains
 # Import API components
 from dudoxx_extraction_api.config import API_TITLE, API_DESCRIPTION, API_VERSION
 from dudoxx_extraction_api.routes import router
+from dudoxx_extraction_api.progress_manager import get_active_connections_count, get_active_requests_count
 
 # Initialize console for logging
 console = Console()
@@ -29,14 +34,48 @@ console = Console()
 # Initialize domains
 initialize_domains()
 
-# Create FastAPI application
+# Define lifespan context manager (replaces on_event handlers)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    console.print(Panel("[bold green]Starting Dudoxx Extraction API...[/]", border_style="green"))
+    
+    # Create a table for API info
+    api_table = Table(title="API Information", box=ROUNDED)
+    api_table.add_column("Property", style="cyan")
+    api_table.add_column("Value", style="green")
+    
+    api_table.add_row("API Title", API_TITLE)
+    api_table.add_row("API Version", API_VERSION)
+    api_table.add_row("API Documentation", "http://localhost:8000/api/docs")
+    api_table.add_row("Progress Updates", "Server-Sent Events (SSE)")
+    api_table.add_row("Progress Endpoint", "/api/v1/progress/{request_id}")
+    
+    console.print(api_table)
+    
+    console.print(Panel(
+        "[bold green]Real-time progress updates are available via Server-Sent Events (SSE).[/]\n"
+        "[bold green]Each extraction request returns a unique request_id that can be used to track progress.[/]\n"
+        "[bold green]Connect to /api/v1/progress/{request_id} to receive real-time updates.[/]",
+        title="Progress Updates Information",
+        border_style="green"
+    ))
+    
+    yield
+    
+    # Shutdown logic
+    console.print(Panel("[bold red]Shutting down Dudoxx Extraction API...[/]", border_style="red"))
+
+
+# Create FastAPI application with lifespan
 app = FastAPI(
     title=API_TITLE,
     description=API_DESCRIPTION,
     version=API_VERSION,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json"
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan
 )
 
 # Add CORS middleware
@@ -65,6 +104,9 @@ def custom_openapi():
     )
     
     # Add security scheme
+    if "components" not in openapi_schema:
+        openapi_schema["components"] = {}
+    
     openapi_schema["components"]["securitySchemes"] = {
         "ApiKeyHeader": {
             "type": "apiKey",
@@ -85,26 +127,6 @@ def custom_openapi():
 app.openapi = custom_openapi
 
 
-@app.on_event("startup")
-async def startup_event():
-    """
-    Startup event handler.
-    """
-    console.print("[bold green]Starting Dudoxx Extraction API...[/]")
-    console.print(f"[bold]API Title:[/] {API_TITLE}")
-    console.print(f"[bold]API Version:[/] {API_VERSION}")
-    console.print(f"[bold]API Documentation:[/] http://localhost:8000/api/docs")
-    console.print(f"[bold]Socket.IO:[/] http://localhost:8001")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Shutdown event handler.
-    """
-    console.print("[bold red]Shutting down Dudoxx Extraction API...[/]")
-
-
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """
@@ -117,7 +139,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     Returns:
         JSON response with error details
     """
-    console.print("[bold red]Unhandled exception:[/]")
+    console.print(Panel("[bold red]Unhandled exception:[/]", border_style="red"))
     console.print_exception()
     
     return JSONResponse(
@@ -134,9 +156,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 if __name__ == "__main__":
     import uvicorn
     
-    console.print("[bold]Running Dudoxx Extraction API...[/]")
-    console.print("[bold yellow]Note:[/] Socket.IO server must be running separately on port 8001")
-    console.print("[bold yellow]Run:[/] python dudoxx_extraction_api/run_socketio.py")
+    console.print(Panel("[bold]Running Dudoxx Extraction API...[/]", border_style="blue"))
     
     uvicorn.run(
         "dudoxx_extraction_api.main:app",
