@@ -806,51 +806,16 @@ class ExtractionPipeline:
         Returns:
             Prompt for LLM
         """
-        # Use the PromptBuilder to generate a more comprehensive prompt
-        from dudoxx_extraction.prompt_builder import PromptBuilder
+        # Use the common prompt generator
+        from dudoxx_extraction.prompt_generator import generate_extraction_prompt
         
-        try:
-            prompt_builder = PromptBuilder()
-            return prompt_builder.build_extraction_prompt(
-                text=text,
-                domain_name=domain,
-                field_names=fields
-            )
-        except (ValueError, ImportError) as e:
-            # Fall back to the simple prompt generation if PromptBuilder fails
-            self.console.print(f"[yellow]Warning: PromptBuilder failed, falling back to simple prompt: {e}[/]")
-            
-            # Simple fallback prompt generation
-            field_descriptions = {
-                "patient_name": "Full name of the patient",
-                "date_of_birth": "Patient's date of birth",
-                "diagnoses": "List of diagnoses",
-                "medications": "List of medications",
-                "visits": "List of medical visits with dates and descriptions",
-                "parties": "Parties involved in the contract",
-                "effective_date": "Date when the contract becomes effective",
-                "termination_date": "Date when the contract terminates",
-                "obligations": "List of obligations for each party",
-                "events": "List of events with dates and descriptions"
-                # Add more field descriptions as needed
-            }
-            
-            # Create field list for prompt
-            field_list = "\n".join([f"- {field}: {field_descriptions.get(field, '')}" for field in fields])
-            
-            # Create prompt
-            prompt = f"""Extract the following information from the {domain} document:
-
-{field_list}
-
-Return the information in JSON format with the field names as keys.
-If a field is not found in the text, return null for that field.
-If a field can have multiple values, return them as a list.
-
-Text:
-{text}
-"""
-            return prompt
+        # Generate the prompt
+        return generate_extraction_prompt(
+            text=text,
+            domain_name=domain,
+            field_names=fields,
+            domain_registry=self.config_service.get_domain_registry() if hasattr(self, 'config_service') else None
+        )
     
     def _estimate_token_count(self, chunks: List[Any]) -> int:
         """
@@ -872,7 +837,8 @@ def extract_text(
     text: str,
     fields: List[str],
     domain: str,
-    output_formats: List[str] = ["json", "text"]
+    output_formats: List[str] = ["json", "text"],
+    use_query_preprocessor: bool = True
 ) -> Dict[str, Any]:
     """
     Extract information from text using OpenAI LLM.
@@ -882,6 +848,7 @@ def extract_text(
         fields: List of fields to extract
         domain: Domain context (e.g., "medical", "legal")
         output_formats: List of output formats (e.g., ["json", "text"])
+        use_query_preprocessor: Whether to use query preprocessing
         
     Returns:
         Dictionary with extraction results
@@ -895,6 +862,53 @@ def extract_text(
         output_formats = ["json", "text"]
     
     start_time = time.time()
+    
+    # Preprocess the query if enabled
+    if use_query_preprocessor:
+        try:
+            # Create a query from fields and domain
+            query = f"Extract {', '.join(fields)} from {domain} document"
+            
+            # Import query preprocessor
+            from dudoxx_extraction.query_preprocessor import QueryPreprocessor
+            
+            # Initialize query preprocessor with the same LLM configuration
+            config_service = ConfigurationService()
+            llm_config = config_service.get_llm_config()
+            
+            llm = ChatOpenAI(
+                base_url=llm_config["base_url"],
+                api_key=llm_config["api_key"],
+                model_name=llm_config["model_name"],
+                temperature=0.0,  # Use 0 temperature for deterministic results
+                max_tokens=llm_config["max_tokens"]
+            )
+            
+            query_preprocessor = QueryPreprocessor(llm=llm, use_rich_logging=True)
+            
+            try:
+                # Preprocess query
+                preprocessed_query = query_preprocessor.preprocess_query(query)
+            except Exception as e:
+                print(f"Error in query preprocessing: {e}")
+                print("Falling back to original query")
+                preprocessed_query = None
+            
+            # Use preprocessed information if available and confidence is high enough
+            if preprocessed_query and preprocessed_query.confidence >= 0.7:
+                # If domain is identified with high confidence, use it
+                if preprocessed_query.identified_domain:
+                    domain = preprocessed_query.identified_domain
+                    print(f"Using preprocessed domain: {domain}")
+                
+                # If fields are identified with high confidence, use them
+                if preprocessed_query.identified_fields:
+                    fields = preprocessed_query.identified_fields
+                    print(f"Using preprocessed fields: {', '.join(fields)}")
+        except Exception as e:
+            # Log error and continue with original query
+            print(f"Error using query preprocessor: {e}")
+            print("Continuing with original query")
     
     # Initialize configuration service
     config_service = ConfigurationService()
@@ -1032,7 +1046,8 @@ def extract_file(
     file_path: str,
     fields: List[str],
     domain: str,
-    output_formats: List[str] = ["json", "text"]
+    output_formats: List[str] = ["json", "text"],
+    use_query_preprocessor: bool = True
 ) -> Dict[str, Any]:
     """
     Extract information from a file.
@@ -1042,6 +1057,7 @@ def extract_file(
         fields: List of fields to extract
         domain: Domain context (e.g., "medical", "legal")
         output_formats: List of output formats (e.g., ["json", "text"])
+        use_query_preprocessor: Whether to use query preprocessing
         
     Returns:
         Dictionary with extraction results
@@ -1050,4 +1066,4 @@ def extract_file(
     with open(file_path, "r") as f:
         text = f.read()
     
-    return extract_text(text, fields, domain, output_formats)
+    return extract_text(text, fields, domain, output_formats, use_query_preprocessor)

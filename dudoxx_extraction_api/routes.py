@@ -15,7 +15,8 @@ from starlette.status import HTTP_403_FORBIDDEN, HTTP_400_BAD_REQUEST, HTTP_500_
 from rich.panel import Panel
 
 from dudoxx_extraction_api.config import API_PREFIX, API_KEY
-from dudoxx_extraction_api.progress_manager import add_progress_update, get_progress_endpoint
+from dudoxx_extraction_api.progress_manager import add_progress_update, get_progress_endpoint, get_progress_callback
+from dudoxx_extraction.progress_tracker import ProgressTracker, ExtractionPhase
 from dudoxx_extraction_api.models import (
     TextExtractionRequest,
     MultiQueryExtractionRequest,

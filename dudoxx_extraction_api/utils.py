@@ -120,21 +120,90 @@ def log_error(operation_type: OperationType, error: Exception) -> None:
     console.print_exception()
 
 
-def identify_domains_and_fields(text: str, query: str) -> Tuple[DomainIdentificationResult, str, List[str]]:
+def identify_domains_and_fields(text: str, query: str, use_query_preprocessor: bool = True) -> Tuple[DomainIdentificationResult, str, List[str]]:
     """
     Identify domains and fields for extraction based on text and query.
     
     Args:
         text: Text to extract from
         query: Query describing what to extract
+        use_query_preprocessor: Whether to use query preprocessing
         
     Returns:
         Tuple of (domain identification result, domain name, field names)
     """
     console.print(f"[bold]Identifying domains and fields for query: '{query}'...[/]")
     
+    # Preprocess the query if enabled
+    if use_query_preprocessor:
+        try:
+            # Import query preprocessor
+            from dudoxx_extraction.query_preprocessor import QueryPreprocessor
+            
+            # Initialize query preprocessor
+            query_preprocessor = QueryPreprocessor(use_rich_logging=True)
+            
+            # Preprocess query
+            console.print("[bold]Preprocessing query...[/]")
+            preprocessed_query = query_preprocessor.preprocess_query(query)
+            
+            # Use preprocessed information if confidence is high enough
+            if preprocessed_query.confidence >= 0.7:
+                console.print(f"[green]Using preprocessed query: {preprocessed_query.reformulated_query}[/]")
+                
+                # If domain and fields are identified with high confidence, use them directly
+                if preprocessed_query.identified_domain and preprocessed_query.identified_fields:
+                    console.print(f"[green]Using identified domain: {preprocessed_query.identified_domain}[/]")
+                    console.print(f"[green]Using identified fields: {', '.join(preprocessed_query.identified_fields)}[/]")
+                    
+                    # Create a domain identification result
+                    domain_identification = DomainIdentificationResult(
+                        matched_domains=[
+                            DomainMatch(
+                                domain_name=preprocessed_query.identified_domain,
+                                confidence=preprocessed_query.confidence,
+                                reason=f"Identified by query preprocessor with confidence {preprocessed_query.confidence:.2f}"
+                            )
+                        ],
+                        matched_fields=[
+                            FieldMatch(
+                                domain_name=preprocessed_query.identified_domain,
+                                sub_domain_name="default",  # This will be updated later
+                                field_name=field,
+                                confidence=preprocessed_query.confidence,
+                                reason=f"Identified by query preprocessor with confidence {preprocessed_query.confidence:.2f}"
+                            ) for field in preprocessed_query.identified_fields
+                        ],
+                        recommended_domains=[preprocessed_query.identified_domain],
+                        recommended_fields={preprocessed_query.identified_domain: preprocessed_query.identified_fields}
+                    )
+                    
+                    return domain_identification, preprocessed_query.identified_domain, preprocessed_query.identified_fields
+                
+                # If only domain is identified, use it with domain identifier for fields
+                if preprocessed_query.identified_domain:
+                    query = preprocessed_query.reformulated_query
+                    domain = preprocessed_query.identified_domain
+                    
+                    # Initialize domain identifier with the identified domain
+                    domain_identifier = DomainIdentifier(use_query_preprocessor=False)
+                    
+                    # Get extraction schema for the identified domain
+                    extraction_schema = domain_identifier.get_extraction_schema(query)
+                    
+                    # If the identified domain is in the schema, use it
+                    if preprocessed_query.identified_domain in extraction_schema:
+                        console.print(f"[green]Using extraction schema for domain: {preprocessed_query.identified_domain}[/]")
+                        return domain_identifier.identify_domains_for_query(query), preprocessed_query.identified_domain, preprocessed_query.identified_fields or []
+                
+                # Use the reformulated query with domain identifier
+                query = preprocessed_query.reformulated_query
+        except Exception as e:
+            console.print(f"[red]Error using query preprocessor: {e}[/]")
+            console.print("[yellow]Continuing with original query[/]")
+    
     # Initialize domain identifier
-    domain_identifier = DomainIdentifier()
+    domain_identifier = DomainIdentifier(use_query_preprocessor=False)
     
     # Get extraction schema - this now uses the LLM to directly identify the most relevant domain and fields
     extraction_schema = domain_identifier.get_extraction_schema(query)
@@ -218,7 +287,8 @@ def identify_domains_and_fields(text: str, query: str) -> Tuple[DomainIdentifica
 
 # Get progress manager for emitting progress updates
 try:
-    from dudoxx_extraction_api.progress_manager import add_progress_update
+    from dudoxx_extraction_api.progress_manager import add_progress_update, get_progress_callback
+    from dudoxx_extraction.progress_tracker import ProgressTracker, ExtractionPhase
     has_progress_manager = True
 except (ImportError, Exception) as e:
     console.print(f"[yellow]Warning: Progress manager not available: {e}[/]")
@@ -227,6 +297,12 @@ except (ImportError, Exception) as e:
     # Define a dummy add_progress_update function if the real one is not available
     def add_progress_update(request_id, status, message, percentage=None):
         console.print(f"[blue]Progress update (no manager):[/] {status} - {message}")
+    
+    # Define a dummy get_progress_callback function
+    def get_progress_callback():
+        def progress_callback(request_id, status, message, percentage=None):
+            console.print(f"[blue]Progress update (no manager):[/] {status} - {message} ({percentage}%)")
+        return progress_callback
 
 
 def emit_progress(request_id, status, message, percentage=None):
@@ -245,7 +321,7 @@ def emit_progress(request_id, status, message, percentage=None):
         console.print(f"[blue]Progress update:[/] {status} - {message} ({percentage}%)")
 
 
-def extract_from_text(text: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False, request_id: str = None) -> Dict[str, Any]:
+def extract_from_text(text: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False, request_id: str = None, use_query_preprocessor: bool = True) -> Dict[str, Any]:
     """
     Extract information from text based on query.
     
@@ -256,6 +332,7 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
         output_formats: Output formats to generate
         use_parallel: Whether to use parallel extraction
         request_id: Request ID for progress updates
+        use_query_preprocessor: Whether to use query preprocessing
         
     Returns:
         Extraction result
@@ -271,7 +348,7 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
         if request_id:
             emit_progress(request_id, "processing", "Identifying domains and fields...", 20)
         
-        domain_identification, domain, fields = identify_domains_and_fields(text, query)
+        domain_identification, domain, fields = identify_domains_and_fields(text, query, use_query_preprocessor)
         
         # If no domain was identified, use "general" as a fallback
         if not domain:
@@ -358,7 +435,8 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
                     domain_name=domain,
                     sub_domain_names=sub_domains,
                     output_formats=output_formats,
-                    request_id=request_id
+                    request_id=request_id,
+                    use_query_preprocessor=use_query_preprocessor
                 )
             else:
                 # Domain not found, use default extraction
@@ -369,7 +447,8 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
                     document_path=temp_file_path,
                     domain_name=domain,
                     output_formats=output_formats,
-                    request_id=request_id
+                    request_id=request_id,
+                    use_query_preprocessor=use_query_preprocessor
                 )
         finally:
             # Clean up temporary file
@@ -399,7 +478,8 @@ def extract_from_text(text: str, query: str, domain: Optional[str] = None, outpu
             text=text,
             fields=fields,
             domain=domain,
-            output_formats=output_formats
+            output_formats=output_formats,
+            use_query_preprocessor=use_query_preprocessor
         )
     
     console.print(f"[green]Extraction completed successfully[/]")
@@ -436,7 +516,7 @@ def save_temp_file(content: str) -> str:
         raise e
 
 
-def extract_from_file(file_path: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False, request_id: str = None) -> Dict[str, Any]:
+def extract_from_file(file_path: str, query: str, domain: Optional[str] = None, output_formats: Optional[List[str]] = None, use_parallel: bool = False, request_id: str = None, use_query_preprocessor: bool = True) -> Dict[str, Any]:
     """
     Extract information from file based on query.
     
@@ -447,6 +527,7 @@ def extract_from_file(file_path: str, query: str, domain: Optional[str] = None, 
         output_formats: Output formats to generate
         use_parallel: Whether to use parallel extraction
         request_id: Request ID for progress updates
+        use_query_preprocessor: Whether to use query preprocessing
         
     Returns:
         Extraction result
@@ -494,7 +575,7 @@ def extract_from_file(file_path: str, query: str, domain: Optional[str] = None, 
         raise ValueError(f"File format not supported: {file_path}")
     
     # Now that we have the text, use the same extraction flow as extract_from_text
-    return extract_from_text(text, query, domain, output_formats, use_parallel, request_id)
+    return extract_from_text(text, query, domain, output_formats, use_parallel, request_id, use_query_preprocessor)
 
 
 def format_extraction_result(result: Dict[str, Any]) -> ExtractionResult:

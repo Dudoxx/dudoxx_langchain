@@ -197,6 +197,23 @@ legal_domain = DomainDefinition(
     keywords=["contract", "agreement", "legal", "parties", "terms", "conditions", "clause", "provision"],
     confidence_threshold=0.7,
     merge_function="merge_legal_results",
+    anti_hallucination_instructions="""
+1. For legal terms, use the exact terminology found in the text rather than synonyms or interpretations.
+2. Do not infer legal relationships or obligations not explicitly stated in the text.
+3. For dates, extract exact dates only if specified, do not calculate or infer dates.
+4. Do not make legal judgments or interpretations of clauses or provisions.
+5. Distinguish between definitive statements and conditional language (e.g., "shall" vs "may").
+6. For monetary values, include exact amounts with currency symbols as stated in the text.
+7. For parties, only include those explicitly named in the agreement, not implied parties.
+8. For contract terms, do not assume standard terms that aren't explicitly mentioned.
+9. Always include units with numerical values (e.g., '$5,000', '30 days', '12 months').
+10. Always maintain context by specifying what each value represents (e.g., 'Effective Date: 2023-03-15', not just '2023-03-15').
+11. For dates, always specify what event the date refers to (e.g., 'Effective Date: 2023-03-15', 'Termination Date: 2025-03-14').
+12. For measurements, include both the value and what was measured (e.g., 'Term Length: 24 months', not just '24 months').
+13. For ranges, include both the lower and upper bounds with units (e.g., 'Payment window: 30-45 days').
+14. For status indicators, use the exact terminology from the text (e.g., 'in effect', 'terminated').
+15. For relationships between entities, only state relationships explicitly mentioned in the text.
+""",
     sub_domains=[
         parties_subdomain,
         contract_dates_subdomain,

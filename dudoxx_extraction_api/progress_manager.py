@@ -49,6 +49,8 @@ async def event_generator(request: Request, request_id: str):
                 "event": "progress",
                 "data": json.dumps(update)  # Ensure data is properly JSON-encoded
             }
+            # Add a small delay between sending existing updates to prevent them from arriving all at once
+            await asyncio.sleep(0.1)
     else:
         # Send initial status if no updates exist
         initial_update = {
@@ -76,6 +78,9 @@ async def event_generator(request: Request, request_id: str):
                     "event": "progress",
                     "data": json.dumps(update)  # Ensure data is properly JSON-encoded
                 }
+                
+                # Add a small delay after sending an update to ensure they don't arrive all at once
+                await asyncio.sleep(0.05)
     finally:
         # Clean up when client disconnects
         if client_id in active_connections:
@@ -149,3 +154,16 @@ def get_active_requests_count():
         Number of active requests
     """
     return len(progress_updates)
+
+
+def get_progress_callback():
+    """
+    Get a callback function for progress updates.
+    
+    Returns:
+        Callback function that takes request_id, status, message, and percentage
+    """
+    def progress_callback(request_id: str, status: str, message: str, percentage: Optional[int] = None):
+        add_progress_update(request_id, status, message, percentage)
+    
+    return progress_callback

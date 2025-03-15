@@ -78,8 +78,8 @@ class PromptBuilder:
             if fields:
                 prompt += self._build_subdomain_section(sub_domain, fields)
         
-        # Add anti-hallucination instructions
-        prompt += self._build_anti_hallucination_instructions()
+        # Add anti-hallucination instructions with domain and subdomain specific instructions
+        prompt += self._build_anti_hallucination_instructions(domain, sub_domains)
         
         # Add formatting instructions
         prompt += self._build_formatting_instructions()
@@ -137,14 +137,19 @@ Domain description: {domain.description}
             
         return section
     
-    def _build_anti_hallucination_instructions(self) -> str:
+    def _build_anti_hallucination_instructions(self, domain: DomainDefinition, sub_domains: List[SubDomainDefinition]) -> str:
         """
-        Build instructions to prevent hallucination.
+        Build instructions to prevent hallucination with domain and subdomain specific instructions.
         
+        Args:
+            domain: Domain definition
+            sub_domains: List of sub-domain definitions
+            
         Returns:
             Anti-hallucination instructions
         """
-        return """
+        # Start with default anti-hallucination instructions
+        instructions = """
 ## Important: Anti-Hallucination Instructions
 
 1. ONLY extract information that is EXPLICITLY stated in the text.
@@ -154,7 +159,21 @@ Domain description: {domain.description}
 5. For list-type fields, only include items that are clearly mentioned in the text.
 6. Do not extract information from section headers or metadata unless it's part of the actual content.
 7. If multiple conflicting values are found for a field, extract the most specific or recent one.
+8. Do not use your general knowledge to fill in missing information.
+9. Distinguish between definitive statements and possibilities in the text (e.g., "may have" vs "has").
+10. Be precise with numerical values - do not round or approximate unless explicitly stated in the text.
 """
+        
+        # Add domain-specific anti-hallucination instructions if available
+        if domain.anti_hallucination_instructions:
+            instructions += f"\n## Domain-Specific Anti-Hallucination Instructions\n\n{domain.anti_hallucination_instructions}\n"
+        
+        # Add subdomain-specific anti-hallucination instructions if available
+        for sub_domain in sub_domains:
+            if sub_domain.anti_hallucination_instructions:
+                instructions += f"\n## {sub_domain.name.replace('_', ' ').title()} Anti-Hallucination Instructions\n\n{sub_domain.anti_hallucination_instructions}\n"
+        
+        return instructions
     
     def _build_formatting_instructions(self) -> str:
         """
@@ -218,8 +237,8 @@ Sub-domain: {sub_domain.description}
         prompt += f"## Field to Extract: {field.name}\n\n"
         prompt += field.to_prompt_text() + "\n"
         
-        # Add anti-hallucination instructions
-        prompt += self._build_anti_hallucination_instructions()
+        # Add anti-hallucination instructions with domain and subdomain specific instructions
+        prompt += self._build_anti_hallucination_instructions(domain, [sub_domain])
         
         # Add simplified formatting instructions
         prompt += """

@@ -8,9 +8,10 @@ sub-domains in parallel for each document chunk.
 import asyncio
 import time
 import json
+import os
 import concurrent.futures
 import threading
-from typing import List, Dict, Any, Optional, Set, Union
+from typing import List, Dict, Any, Optional, Set, Union, Callable
 from pydantic import BaseModel
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskID
@@ -50,7 +51,8 @@ class ParallelExtractionPipeline:
         temporal_normalizer=None,
         result_merger=None,
         output_formatter=None,
-        max_concurrency: int = 20
+        max_concurrency: int = 20,
+        use_query_preprocessor: bool = True
     ):
         """
         Initialize the parallel extraction pipeline.
@@ -62,6 +64,7 @@ class ParallelExtractionPipeline:
             result_merger: Result merger
             output_formatter: Output formatter
             max_concurrency: Maximum concurrent LLM requests
+            use_query_preprocessor: Whether to use query preprocessing
         """
         # Initialize configuration service
         self.config_service = ConfigurationService()
@@ -75,6 +78,9 @@ class ParallelExtractionPipeline:
             temperature=llm_config["temperature"],
             max_tokens=llm_config["max_tokens"]
         )
+        
+        # Set query preprocessor flag
+        self.use_query_preprocessor = use_query_preprocessor
         
         # Get extraction configuration
         extraction_config = self.config_service.get_extraction_config()
@@ -106,7 +112,9 @@ class ParallelExtractionPipeline:
         domain_name: str,
         sub_domain_names: Optional[List[str]] = None,
         output_formats: Optional[List[str]] = None,
-        request_id: Optional[str] = None
+        request_id: Optional[str] = None,
+        progress_callback: Optional[Callable] = None,
+        use_query_preprocessor: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Process a document through the parallel extraction pipeline using thread pool.
@@ -116,16 +124,91 @@ class ParallelExtractionPipeline:
             domain_name: Domain name
             sub_domain_names: List of sub-domain names to process (if None, all sub-domains are processed)
             output_formats: Output formats to generate
+            request_id: Request ID for progress updates
+            progress_callback: Callback function for progress updates
+            use_query_preprocessor: Whether to use query preprocessing (overrides instance setting)
             
         Returns:
             Extraction result
         """
         start_time = time.time()
         
+        # Initialize progress tracker
+        try:
+            from dudoxx_extraction.progress_tracker import ProgressTracker, ExtractionPhase
+            progress_tracker = ProgressTracker(request_id, callback=progress_callback)
+        except ImportError:
+            progress_tracker = None
+            self.console.print("[yellow]Warning: ProgressTracker not available, using basic progress updates[/]")
+        
+        # Determine whether to use query preprocessor
+        should_use_preprocessor = use_query_preprocessor if use_query_preprocessor is not None else self.use_query_preprocessor
+        
+        # Preprocess the query if enabled
+        if should_use_preprocessor:
+            # Create a query from domain and sub-domains
+            if sub_domain_names:
+                query = f"Extract information from {domain_name} document, focusing on {', '.join(sub_domain_names)}"
+            else:
+                query = f"Extract all information from {domain_name} document"
+            
+            try:
+                # Update progress before preprocessing
+                if progress_tracker:
+                    progress_tracker.update_progress("Preprocessing query...", 5)
+                
+                # Import query preprocessor
+                from dudoxx_extraction.query_preprocessor import QueryPreprocessor
+                
+                # Initialize query preprocessor
+                query_preprocessor = QueryPreprocessor(llm=self.llm, domain_registry=self.domain_registry, use_rich_logging=True)
+                
+                # Preprocess query
+                preprocessed_query = query_preprocessor.preprocess_query(query)
+                
+                # Use preprocessed information if available and confidence is high enough
+                if preprocessed_query and preprocessed_query.confidence >= 0.7:
+                    # If domain is identified with high confidence, use it
+                    if preprocessed_query.identified_domain:
+                        domain_name = preprocessed_query.identified_domain
+                        
+                        if progress_tracker:
+                            progress_tracker.update_progress(f"Using preprocessed domain: {domain_name}", 10)
+                    
+                    # If fields are identified with high confidence, map them to sub-domains
+                    if preprocessed_query.identified_fields and not sub_domain_names:
+                        # Get domain definition
+                        domain = self.domain_registry.get_domain(domain_name)
+                        if domain:
+                            # Map fields to sub-domains
+                            field_to_subdomain = {}
+                            for field_name in preprocessed_query.identified_fields:
+                                field_info = domain.get_field(field_name)
+                                if field_info:
+                                    sub_domain, _ = field_info
+                                    if sub_domain.name not in field_to_subdomain:
+                                        field_to_subdomain[sub_domain.name] = []
+                                    field_to_subdomain[sub_domain.name].append(field_name)
+                            
+                            # Use identified sub-domains
+                            if field_to_subdomain:
+                                sub_domain_names = list(field_to_subdomain.keys())
+                                
+                                if progress_tracker:
+                                    progress_tracker.update_progress(f"Using preprocessed sub-domains: {', '.join(sub_domain_names)}", 15)
+            except Exception as e:
+                # Log error and continue with original query
+                self.console.print(f"[red]Error using query preprocessor: {e}[/]")
+                self.console.print("[yellow]Continuing with original query[/]")
+                preprocessed_query = None
+        
         # Get domain definition
         domain = self.domain_registry.get_domain(domain_name)
         if domain is None:
-            raise ValueError(f"Domain '{domain_name}' not found")
+            error_message = f"Domain '{domain_name}' not found"
+            if progress_tracker:
+                progress_tracker.report_error(error_message)
+            raise ValueError(error_message)
         
         # Determine sub-domains to process
         sub_domains = []
@@ -140,17 +223,37 @@ class ParallelExtractionPipeline:
             sub_domains = domain.sub_domains
         
         if not sub_domains:
-            raise ValueError(f"No valid sub-domains found for domain '{domain_name}'")
+            error_message = f"No valid sub-domains found for domain '{domain_name}'"
+            if progress_tracker:
+                progress_tracker.report_error(error_message)
+            raise ValueError(error_message)
         
         # Step 1: Load document
+        if progress_tracker:
+            file_extension = os.path.splitext(document_path)[1].lower()
+            document_type = file_extension.lstrip('.').upper() or "Unknown"
+            progress_tracker.start_document_loading(document_type, os.path.basename(document_path))
+        
         loader = DocumentLoaderFactory.get_loader_for_file(document_path)
         if loader is None:
-            raise ValueError(f"No loader available for file: {document_path}")
+            error_message = f"No loader available for file: {document_path}"
+            if progress_tracker:
+                progress_tracker.report_error(error_message)
+            raise ValueError(error_message)
         
         documents = loader.load()
         
+        if progress_tracker:
+            progress_tracker.complete_document_loading(len(documents))
+        
         # Step 2: Split document into chunks
+        if progress_tracker:
+            progress_tracker.start_document_chunking(len(documents))
+        
         chunks = self.text_splitter.split_documents(documents)
+        
+        if progress_tracker:
+            progress_tracker.complete_document_chunking(len(chunks))
         
         # Step 3: Process chunks and sub-domains in parallel using ThreadPoolExecutor
         tasks = []
@@ -158,22 +261,9 @@ class ParallelExtractionPipeline:
             for sub_domain in sub_domains:
                 tasks.append((chunk, sub_domain))
         
-        # Try to import progress manager for progress updates
-        has_progress_manager = False
-        if request_id:
-            try:
-                from dudoxx_extraction_api.progress_manager import add_progress_update
-                has_progress_manager = True
-                
-                # Send progress update
-                add_progress_update(
-                    request_id, 
-                    "processing", 
-                    f"Processing document with {len(chunks)} chunks and {len(sub_domains)} sub-domains...", 
-                    30
-                )
-            except ImportError:
-                self.console.print("[yellow]Warning: Progress manager not available, using local progress display[/]")
+        # Start field extraction phase
+        if progress_tracker:
+            progress_tracker.start_field_extraction(len(chunks), len(sub_domains))
         
         # Create a progress display
         with Progress(
@@ -203,9 +293,19 @@ class ParallelExtractionPipeline:
             # Process tasks in parallel using ThreadPoolExecutor
             extraction_results = []
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_concurrency) as executor:
-                # Submit all tasks to the executor
+                # Create a wrapper function to set thread-local storage for request_id and progress_callback
+                def process_with_context(chunk, sub_domain):
+                    # Store request_id and progress_callback in thread-local storage
+                    thread = threading.current_thread()
+                    thread.request_id = request_id
+                    thread.progress_callback = progress_callback
+                    
+                    # Call the actual processing function
+                    return self._process_chunk_subdomain(chunk, sub_domain)
+                
+                # Submit all tasks to the executor with the wrapper function
                 future_to_task = {
-                    executor.submit(self._process_chunk_subdomain, chunk, sub_domain): 
+                    executor.submit(process_with_context, chunk, sub_domain): 
                     (chunk, sub_domain) for chunk, sub_domain in tasks
                 }
                 
@@ -251,8 +351,8 @@ class ParallelExtractionPipeline:
         
         # Step 5: Merge results from sub-domains for each chunk with improved tracking
         self.console.print("[green]Merging results from sub-domains...[/]")
-        if has_progress_manager and request_id:
-            add_progress_update(request_id, "processing", "Merging results from sub-domains...", 70)
+        if progress_tracker:
+            progress_tracker.start_result_merging(len(chunk_results))
         merged_chunk_results = []
         for chunk_index, sub_domain_results in chunk_results.items():
             merged_result = {}
@@ -294,9 +394,11 @@ class ParallelExtractionPipeline:
         
         # Step 6: Normalize temporal data
         self.console.print("[green]Normalizing temporal data...[/]")
-        if has_progress_manager and request_id:
-            add_progress_update(request_id, "processing", "Normalizing temporal data...", 80)
+        if progress_tracker:
+            progress_tracker.start_temporal_normalization()
         normalized_results = []
+        temporal_field_count = 0
+        
         for result in merged_chunk_results:
             normalized_result = {}
             
@@ -312,24 +414,39 @@ class ParallelExtractionPipeline:
                 if field.endswith("_date") or field == "date":
                     # Normalize date fields
                     normalized_result[field] = self.temporal_normalizer.normalize_date(value)
+                    temporal_field_count += 1
                 elif field == "timeline" and isinstance(value, list):
                     # Normalize timeline
                     normalized_result[field] = self.temporal_normalizer.construct_timeline(value)
+                    temporal_field_count += 1
                 else:
                     normalized_result[field] = value
             
             normalized_results.append(normalized_result)
         
+        if progress_tracker:
+            progress_tracker.complete_temporal_normalization(temporal_field_count)
+        
         # Step 7: Merge and deduplicate results from all chunks with improved handling
         self.console.print("[green]Merging and deduplicating results...[/]")
-        if has_progress_manager and request_id:
-            add_progress_update(request_id, "processing", "Merging and deduplicating results...", 90)
+        if progress_tracker:
+            progress_tracker.start_deduplication()
+        # Count fields before merging for deduplication count
+        fields_before = sum(len(result.keys()) for result in normalized_results)
+        
         final_merged_result = self.result_merger.merge_results(normalized_results)
+        
+        # Count fields after merging to estimate duplicates removed
+        fields_after = len(final_merged_result.keys())
+        duplicates_removed = max(0, fields_before - fields_after)
+        
+        if progress_tracker:
+            progress_tracker.complete_deduplication(duplicates_removed)
         
         # Step 8: Format output
         self.console.print("[green]Formatting output...[/]")
-        if has_progress_manager and request_id:
-            add_progress_update(request_id, "processing", "Formatting output...", 95)
+        if progress_tracker:
+            progress_tracker.start_output_formatting(output_formats or ["json", "text"])
         output = {}
         
         # Ensure output_formats is a list
@@ -358,6 +475,9 @@ class ParallelExtractionPipeline:
         if "xml" in output_formats:
             output["xml_output"] = self.output_formatter.format_xml(filtered_result)
         
+        if progress_tracker:
+            progress_tracker.complete_output_formatting()
+        
         # Add metadata
         processing_time = time.time() - start_time
         output["metadata"] = {
@@ -369,6 +489,10 @@ class ParallelExtractionPipeline:
         }
         
         self.console.print(f"[green]Extraction completed in {processing_time:.2f} seconds[/]")
+        
+        # Complete extraction
+        if progress_tracker:
+            progress_tracker.complete_extraction(processing_time)
         
         return output
     
@@ -383,8 +507,30 @@ class ParallelExtractionPipeline:
         Returns:
             Extraction result
         """
+        # Get request_id from thread-local storage if available
+        request_id = getattr(threading.current_thread(), 'request_id', None)
+        progress_callback = getattr(threading.current_thread(), 'progress_callback', None)
+        
+        # Try to get progress tracker
+        progress_tracker = None
+        if request_id and progress_callback:
+            try:
+                from dudoxx_extraction.progress_tracker import ProgressTracker, ExtractionPhase
+                progress_tracker = ProgressTracker(request_id, callback=progress_callback)
+            except ImportError:
+                pass
+        
         # Generate prompt
         prompt = self._generate_prompt(chunk.page_content, sub_domain)
+        
+        # Send progress update for starting this field extraction
+        if progress_tracker:
+            message = f"Processing chunk {chunk.metadata.get('chunk_index', 0)} with sub-domain '{sub_domain.name}'..."
+            progress_tracker.update_chunk_progress(
+                chunk_index=chunk.metadata.get('chunk_index', 0),
+                chunk_count=1,  # We don't know the total here, but it's used for the message only
+                field_name=sub_domain.name
+            )
         
         # Process with LLM (synchronous version)
         response = self.llm.generate([prompt])
@@ -393,6 +539,13 @@ class ParallelExtractionPipeline:
         try:
             parser = JsonOutputParser()
             parsed_output = parser.parse(response.generations[0][0].text)
+            
+            # Send progress update for completed field extraction
+            if progress_tracker:
+                field_count = len(parsed_output)
+                message = f"Extracted {field_count} fields from chunk {chunk.metadata.get('chunk_index', 0)} with sub-domain '{sub_domain.name}'"
+                progress_tracker.update_field_extraction_progress(message)
+            
             return {
                 "chunk_index": chunk.metadata.get("chunk_index", 0),
                 "sub_domain": sub_domain.name,
@@ -401,6 +554,12 @@ class ParallelExtractionPipeline:
         except Exception as e:
             self.console.print(f"[red]Error parsing output for sub-domain '{sub_domain.name}': {e}[/]")
             self.console.print(f"[yellow]Raw output: {response.generations[0][0].text}[/]")
+            
+            # Send progress update for failed field extraction
+            if progress_tracker:
+                message = f"Failed to extract fields from chunk {chunk.metadata.get('chunk_index', 0)} with sub-domain '{sub_domain.name}'"
+                progress_tracker.update_field_extraction_progress(message)
+            
             # Return empty result on parsing error
             return {
                 "chunk_index": chunk.metadata.get("chunk_index", 0),
@@ -413,7 +572,10 @@ class ParallelExtractionPipeline:
         document_path: str,
         domain_name: str,
         sub_domain_names: Optional[List[str]] = None,
-        output_formats: List[str] = ["json", "text"]
+        output_formats: List[str] = ["json", "text"],
+        request_id: Optional[str] = None,
+        progress_callback: Optional[Callable] = None,
+        use_query_preprocessor: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Process a document through the parallel extraction pipeline using asyncio.
@@ -423,16 +585,90 @@ class ParallelExtractionPipeline:
             domain_name: Domain name
             sub_domain_names: List of sub-domain names to process (if None, all sub-domains are processed)
             output_formats: Output formats to generate
+            request_id: Request ID for progress updates
+            progress_callback: Callback function for progress updates
+            use_query_preprocessor: Whether to use query preprocessing (overrides instance setting)
             
         Returns:
             Extraction result
         """
         start_time = time.time()
         
+        # Initialize progress tracker
+        try:
+            from dudoxx_extraction.progress_tracker import ProgressTracker, ExtractionPhase
+            progress_tracker = ProgressTracker(request_id, callback=progress_callback)
+        except ImportError:
+            progress_tracker = None
+            self.console.print("[yellow]Warning: ProgressTracker not available, using basic progress updates[/]")
+        
+        # Determine whether to use query preprocessor
+        should_use_preprocessor = use_query_preprocessor if use_query_preprocessor is not None else self.use_query_preprocessor
+        
+        # Preprocess the query if enabled
+        if should_use_preprocessor:
+            # Create a query from domain and sub-domains
+            if sub_domain_names:
+                query = f"Extract information from {domain_name} document, focusing on {', '.join(sub_domain_names)}"
+            else:
+                query = f"Extract all information from {domain_name} document"
+            
+            try:
+                # Update progress before preprocessing
+                if progress_tracker:
+                    progress_tracker.update_progress("Preprocessing query...", 5)
+                
+                # Import query preprocessor
+                from dudoxx_extraction.query_preprocessor import QueryPreprocessor
+                
+                # Initialize query preprocessor
+                query_preprocessor = QueryPreprocessor(llm=self.llm, domain_registry=self.domain_registry, use_rich_logging=True)
+                
+                # Preprocess query
+                preprocessed_query = query_preprocessor.preprocess_query(query)
+                
+                # Use preprocessed information if confidence is high enough
+                if preprocessed_query.confidence >= 0.7:
+                    # If domain is identified with high confidence, use it
+                    if preprocessed_query.identified_domain:
+                        domain_name = preprocessed_query.identified_domain
+                        
+                        if progress_tracker:
+                            progress_tracker.update_progress(f"Using preprocessed domain: {domain_name}", 10)
+                    
+                    # If fields are identified with high confidence, map them to sub-domains
+                    if preprocessed_query.identified_fields and not sub_domain_names:
+                        # Get domain definition
+                        domain = self.domain_registry.get_domain(domain_name)
+                        if domain:
+                            # Map fields to sub-domains
+                            field_to_subdomain = {}
+                            for field_name in preprocessed_query.identified_fields:
+                                field_info = domain.get_field(field_name)
+                                if field_info:
+                                    sub_domain, _ = field_info
+                                    if sub_domain.name not in field_to_subdomain:
+                                        field_to_subdomain[sub_domain.name] = []
+                                    field_to_subdomain[sub_domain.name].append(field_name)
+                            
+                            # Use identified sub-domains
+                            if field_to_subdomain:
+                                sub_domain_names = list(field_to_subdomain.keys())
+                                
+                                if progress_tracker:
+                                    progress_tracker.update_progress(f"Using preprocessed sub-domains: {', '.join(sub_domain_names)}", 15)
+            except Exception as e:
+                # Log error and continue with original query
+                self.console.print(f"[red]Error using query preprocessor: {e}[/]")
+                self.console.print("[yellow]Continuing with original query[/]")
+        
         # Get domain definition
         domain = self.domain_registry.get_domain(domain_name)
         if domain is None:
-            raise ValueError(f"Domain '{domain_name}' not found")
+            error_message = f"Domain '{domain_name}' not found"
+            if progress_tracker:
+                progress_tracker.report_error(error_message)
+            raise ValueError(error_message)
         
         # Determine sub-domains to process
         sub_domains = []
@@ -442,22 +678,42 @@ class ParallelExtractionPipeline:
                 if sub_domain:
                     sub_domains.append(sub_domain)
                 else:
-                    print(f"Warning: Sub-domain '{name}' not found in domain '{domain_name}'")
+                    self.console.print(f"[yellow]Warning:[/] Sub-domain '{name}' not found in domain '{domain_name}'")
         else:
             sub_domains = domain.sub_domains
         
         if not sub_domains:
-            raise ValueError(f"No valid sub-domains found for domain '{domain_name}'")
+            error_message = f"No valid sub-domains found for domain '{domain_name}'"
+            if progress_tracker:
+                progress_tracker.report_error(error_message)
+            raise ValueError(error_message)
         
         # Step 1: Load document
+        if progress_tracker:
+            file_extension = os.path.splitext(document_path)[1].lower()
+            document_type = file_extension.lstrip('.').upper() or "Unknown"
+            progress_tracker.start_document_loading(document_type, os.path.basename(document_path))
+        
         loader = DocumentLoaderFactory.get_loader_for_file(document_path)
         if loader is None:
-            raise ValueError(f"No loader available for file: {document_path}")
+            error_message = f"No loader available for file: {document_path}"
+            if progress_tracker:
+                progress_tracker.report_error(error_message)
+            raise ValueError(error_message)
         
         documents = loader.load()
         
+        if progress_tracker:
+            progress_tracker.complete_document_loading(len(documents))
+        
         # Step 2: Split document into chunks
+        if progress_tracker:
+            progress_tracker.start_document_chunking(len(documents))
+        
         chunks = self.text_splitter.split_documents(documents)
+        
+        if progress_tracker:
+            progress_tracker.complete_document_chunking(len(chunks))
         
         # Step 3: Process chunks and sub-domains in parallel
         semaphore = asyncio.Semaphore(self.max_concurrency)
@@ -495,8 +751,17 @@ class ParallelExtractionPipeline:
             for sub_domain in sub_domains:
                 tasks.append(process_chunk_subdomain(chunk, sub_domain))
         
+        # Start field extraction phase
+        if progress_tracker:
+            progress_tracker.start_field_extraction(len(chunks), len(sub_domains))
+        
         # Execute tasks in parallel
         extraction_results = await asyncio.gather(*tasks)
+        
+        # Complete field extraction
+        if progress_tracker:
+            extracted_fields_count = sum(len(result.get("result", {})) for result in extraction_results)
+            progress_tracker.complete_field_extraction(extracted_fields_count)
         
         # Step 4: Organize results by chunk and sub-domain
         chunk_results = {}
@@ -510,6 +775,9 @@ class ParallelExtractionPipeline:
             chunk_results[chunk_index][sub_domain_name] = result["result"]
         
         # Step 5: Merge results from sub-domains for each chunk with improved tracking
+        if progress_tracker:
+            progress_tracker.start_result_merging(len(chunk_results))
+        
         merged_chunk_results = []
         for chunk_index, sub_domain_results in chunk_results.items():
             merged_result = {}
@@ -550,7 +818,12 @@ class ParallelExtractionPipeline:
             merged_chunk_results.append(merged_result)
         
         # Step 6: Normalize temporal data
+        if progress_tracker:
+            progress_tracker.start_temporal_normalization()
+        
         normalized_results = []
+        temporal_field_count = 0
+        
         for result in merged_chunk_results:
             normalized_result = {}
             
@@ -574,10 +847,29 @@ class ParallelExtractionPipeline:
             
             normalized_results.append(normalized_result)
         
+        if progress_tracker:
+            progress_tracker.complete_temporal_normalization(temporal_field_count)
+        
         # Step 7: Merge and deduplicate results from all chunks
+        if progress_tracker:
+            progress_tracker.start_deduplication()
+        
+        # Count fields before merging for deduplication count
+        fields_before = sum(len(result.keys()) for result in normalized_results)
+        
         final_merged_result = self.result_merger.merge_results(normalized_results)
         
+        # Count fields after merging to estimate duplicates removed
+        fields_after = len(final_merged_result.keys())
+        duplicates_removed = max(0, fields_before - fields_after)
+        
+        if progress_tracker:
+            progress_tracker.complete_deduplication(duplicates_removed)
+        
         # Step 8: Format output
+        if progress_tracker:
+            progress_tracker.start_output_formatting(output_formats)
+        
         output = {}
         
         # Create a null filter to remove null, N/A, and empty values
@@ -612,6 +904,10 @@ class ParallelExtractionPipeline:
             "token_count": self._estimate_token_count(chunks)
         }
         
+        if progress_tracker:
+            progress_tracker.complete_output_formatting()
+            progress_tracker.complete_extraction(processing_time)
+        
         return output
     
     def _generate_prompt(self, text: str, sub_domain: SubDomainDefinition) -> str:
@@ -625,43 +921,28 @@ class ParallelExtractionPipeline:
         Returns:
             Prompt for LLM
         """
-        # Use the PromptBuilder to generate a more comprehensive prompt
-        try:
-            from dudoxx_extraction.prompt_builder import PromptBuilder
-            
-            # Find the domain that contains this sub-domain
-            domain_name = None
-            for domain in self.domain_registry.get_all_domains():
-                if domain.get_sub_domain(sub_domain.name):
-                    domain_name = domain.name
-                    break
-            
-            if domain_name:
-                prompt_builder = PromptBuilder(self.domain_registry)
-                return prompt_builder.build_extraction_prompt(
-                    text=text,
-                    domain_name=domain_name,
-                    sub_domain_names=[sub_domain.name]
-                )
-        except (ValueError, ImportError) as e:
-            # Fall back to the simple prompt generation if PromptBuilder fails
-            self.console.print(f"[yellow]Warning: PromptBuilder failed, falling back to simple prompt: {e}[/]")
+        # Find the domain that contains this sub-domain
+        domain_name = None
+        for domain in self.domain_registry.get_all_domains():
+            if domain.get_sub_domain(sub_domain.name):
+                domain_name = domain.name
+                break
         
-        # Fallback to original method if PromptBuilder fails
-        # Get prompt text from sub-domain
-        prompt_text = sub_domain.to_prompt_text()
+        if not domain_name:
+            # If domain not found, use a simple prompt
+            self.console.print(f"[yellow]Warning: Domain not found for sub-domain '{sub_domain.name}'. Using simple prompt.[/]")
+            return sub_domain.to_prompt_text() + f"\n\nText:\n{text}\n"
         
-        # Create prompt
-        prompt = f"""{prompt_text}
-
-Return the information in JSON format with the field names as keys.
-If a field is not found in the text, return null for that field.
-If a field can have multiple values, return them as a list.
-
-Text:
-{text}
-"""
-        return prompt
+        # Use the common prompt generator
+        from dudoxx_extraction.prompt_generator import generate_extraction_prompt
+        
+        # Generate the prompt
+        return generate_extraction_prompt(
+            text=text,
+            domain_name=domain_name,
+            sub_domain_names=[sub_domain.name],
+            domain_registry=self.domain_registry
+        )
     
     def _estimate_token_count(self, chunks: List[Any]) -> int:
         """
@@ -683,7 +964,9 @@ async def extract_document(
     document_path: str,
     domain_name: str,
     sub_domain_names: Optional[List[str]] = None,
-    output_formats: List[str] = ["json", "text"]
+    output_formats: List[str] = ["json", "text"],
+    request_id: Optional[str] = None,
+    progress_callback: Optional[Callable] = None
 ) -> Dict[str, Any]:
     """
     Extract information from a document using the parallel extraction pipeline.
@@ -693,6 +976,8 @@ async def extract_document(
         domain_name: Domain name
         sub_domain_names: List of sub-domain names to process (if None, all sub-domains are processed)
         output_formats: Output formats to generate
+        request_id: Request ID for progress updates
+        progress_callback: Callback function for progress updates
         
     Returns:
         Extraction result
@@ -702,7 +987,9 @@ async def extract_document(
         document_path=document_path,
         domain_name=domain_name,
         sub_domain_names=sub_domain_names,
-        output_formats=output_formats
+        output_formats=output_formats,
+        request_id=request_id,
+        progress_callback=progress_callback
     )
 
 
@@ -712,7 +999,9 @@ def extract_document_sync(
     sub_domain_names: Optional[List[str]] = None,
     output_formats: Optional[List[str]] = None,
     use_threads: bool = True,
-    request_id: Optional[str] = None
+    request_id: Optional[str] = None,
+    progress_callback: Optional[Callable] = None,
+    use_query_preprocessor: bool = True
 ) -> Dict[str, Any]:
     """
     Extract information from a document using the parallel extraction pipeline (synchronous version).
@@ -723,11 +1012,23 @@ def extract_document_sync(
         sub_domain_names: List of sub-domain names to process (if None, all sub-domains are processed)
         output_formats: Output formats to generate
         use_threads: Whether to use thread-based parallelism (True) or asyncio-based parallelism (False)
+        request_id: Request ID for progress updates
+        progress_callback: Callback function for progress updates
+        use_query_preprocessor: Whether to use query preprocessing
         
     Returns:
         Extraction result
     """
-    pipeline = ParallelExtractionPipeline()
+    pipeline = ParallelExtractionPipeline(use_query_preprocessor=use_query_preprocessor)
+    
+    # Try to get progress callback from API if not provided
+    if request_id and not progress_callback:
+        try:
+            from dudoxx_extraction_api.progress_manager import get_progress_callback
+            progress_callback = get_progress_callback()
+        except ImportError:
+            # Progress manager not available, use default callback
+            pass
     
     if use_threads:
         # Use thread-based parallelism
@@ -736,7 +1037,9 @@ def extract_document_sync(
             domain_name=domain_name,
             sub_domain_names=sub_domain_names,
             output_formats=output_formats,
-            request_id=request_id
+            request_id=request_id,
+            progress_callback=progress_callback,
+            use_query_preprocessor=use_query_preprocessor
         )
     else:
         # Use asyncio-based parallelism
@@ -751,7 +1054,10 @@ def extract_document_sync(
                 document_path=document_path,
                 domain_name=domain_name,
                 sub_domain_names=sub_domain_names,
-                output_formats=output_formats
+                output_formats=output_formats,
+                request_id=request_id,
+                progress_callback=progress_callback,
+                use_query_preprocessor=use_query_preprocessor
             ))
         finally:
             # Clean up the event loop

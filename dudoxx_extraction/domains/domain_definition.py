@@ -193,6 +193,7 @@ class SubDomainDefinition(BaseModel):
         post_extraction_function: Function to run after extraction
         confidence_threshold: Minimum confidence score to accept sub-domain extraction
         priority: Priority for extraction (higher values = higher priority)
+        anti_hallucination_instructions: Specific anti-hallucination instructions for this sub-domain
     """
     
     name: str = Field(description="Name of the sub-domain")
@@ -219,6 +220,10 @@ class SubDomainDefinition(BaseModel):
     priority: Optional[int] = Field(
         default=None, 
         description="Priority for extraction (higher values = higher priority)"
+    )
+    anti_hallucination_instructions: Optional[str] = Field(
+        default=None, 
+        description="Specific anti-hallucination instructions for this sub-domain"
     )
     
     def to_prompt_text(self) -> str:
@@ -308,6 +313,7 @@ class DomainDefinition(BaseModel):
         merge_function: Function to merge results from multiple chunks
         keywords: Keywords that often appear in documents of this domain
         confidence_threshold: Minimum confidence score to accept domain identification
+        anti_hallucination_instructions: General anti-hallucination instructions for this domain
     """
     
     name: str = Field(description="Name of the domain")
@@ -342,6 +348,10 @@ class DomainDefinition(BaseModel):
     confidence_threshold: Optional[float] = Field(
         default=None, 
         description="Minimum confidence score to accept domain identification"
+    )
+    anti_hallucination_instructions: Optional[str] = Field(
+        default=None, 
+        description="General anti-hallucination instructions for this domain"
     )
     
     def get_sub_domain(self, name: str) -> Optional[SubDomainDefinition]:

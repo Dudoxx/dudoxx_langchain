@@ -82,7 +82,8 @@ class ExtractionClient:
         text: str,
         fields: List[str],
         domain: str,
-        output_formats: List[str] = ["json", "text"]
+        output_formats: List[str] = ["json", "text"],
+        use_query_preprocessor: bool = True
     ) -> Dict[str, Any]:
         """
         Extract structured information from text.
@@ -92,6 +93,7 @@ class ExtractionClient:
             fields: Fields to extract
             domain: Domain context
             output_formats: Output formats to generate
+            use_query_preprocessor: Whether to use query preprocessing
             
         Returns:
             Extraction result
@@ -100,7 +102,7 @@ class ExtractionClient:
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
-            lambda: _extract_text(text, fields, domain, output_formats)
+            lambda: _extract_text(text, fields, domain, output_formats, use_query_preprocessor)
         )
         
         return result
@@ -110,7 +112,8 @@ class ExtractionClient:
         file_path: str,
         fields: List[str],
         domain: str,
-        output_formats: List[str] = ["json", "text"]
+        output_formats: List[str] = ["json", "text"],
+        use_query_preprocessor: bool = True
     ) -> Dict[str, Any]:
         """
         Extract structured information from file.
@@ -120,6 +123,7 @@ class ExtractionClient:
             fields: Fields to extract
             domain: Domain context
             output_formats: Output formats to generate
+            use_query_preprocessor: Whether to use query preprocessing
             
         Returns:
             Extraction result
@@ -128,7 +132,7 @@ class ExtractionClient:
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
-            lambda: _extract_file(file_path, fields, domain, output_formats)
+            lambda: _extract_file(file_path, fields, domain, output_formats, use_query_preprocessor)
         )
         
         return result
@@ -162,7 +166,8 @@ class ExtractionClientSync:
         text: str,
         fields: List[str],
         domain: str,
-        output_formats: List[str] = ["json", "text"]
+        output_formats: List[str] = ["json", "text"],
+        use_query_preprocessor: bool = True
     ) -> Dict[str, Any]:
         """
         Extract structured information from text.
@@ -172,18 +177,20 @@ class ExtractionClientSync:
             fields: Fields to extract
             domain: Domain context
             output_formats: Output formats to generate
+            use_query_preprocessor: Whether to use query preprocessing
             
         Returns:
             Extraction result
         """
-        return _extract_text(text, fields, domain, output_formats)
+        return _extract_text(text, fields, domain, output_formats, use_query_preprocessor)
     
     def extract_file(
         self,
         file_path: str,
         fields: List[str],
         domain: str,
-        output_formats: List[str] = ["json", "text"]
+        output_formats: List[str] = ["json", "text"],
+        use_query_preprocessor: bool = True
     ) -> Dict[str, Any]:
         """
         Extract structured information from file.
@@ -193,11 +200,12 @@ class ExtractionClientSync:
             fields: Fields to extract
             domain: Domain context
             output_formats: Output formats to generate
+            use_query_preprocessor: Whether to use query preprocessing
             
         Returns:
             Extraction result
         """
-        return _extract_file(file_path, fields, domain, output_formats)
+        return _extract_file(file_path, fields, domain, output_formats, use_query_preprocessor)
 
 
 # Example usage
