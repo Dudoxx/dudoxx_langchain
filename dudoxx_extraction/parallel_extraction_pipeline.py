@@ -104,7 +104,7 @@ class ParallelExtractionPipeline:
         document_path: str,
         domain_name: str,
         sub_domain_names: Optional[List[str]] = None,
-        output_formats: List[str] = ["json", "text"]
+        output_formats: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Process a document through the parallel extraction pipeline using thread pool.
@@ -264,6 +264,11 @@ class ParallelExtractionPipeline:
         # Step 8: Format output
         self.console.print("[green]Formatting output...[/]")
         output = {}
+        
+        # Ensure output_formats is a list
+        if output_formats is None:
+            output_formats = ["json", "text"]
+        
         if "json" in output_formats:
             output["json_output"] = self.output_formatter.format_json(final_merged_result)
         
@@ -548,7 +553,7 @@ def extract_document_sync(
     document_path: str,
     domain_name: str,
     sub_domain_names: Optional[List[str]] = None,
-    output_formats: List[str] = ["json", "text"],
+    output_formats: Optional[List[str]] = None,
     use_threads: bool = True
 ) -> Dict[str, Any]:
     """
